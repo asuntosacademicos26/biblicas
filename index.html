@@ -1,1 +1,503 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Asuntos Bíblicos</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Auth card ── */
+    #auth-section {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+    }
+
+    #auth-section h1 {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      color: #1a202c;
+      font-size: 1.5rem;
+    }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 0.6rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 0.95rem;
+      color: #718096;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .tab-btn.active {
+      color: #4a6fa5;
+      border-bottom-color: #4a6fa5;
+      font-weight: 600;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: #4a5568;
+      margin-bottom: 0.3rem;
+    }
+
+    input[type="email"],
+    input[type="password"],
+    input[type="text"],
+    textarea {
+      width: 100%;
+      padding: 0.6rem 0.8rem;
+      border: 1px solid #cbd5e0;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      transition: border-color 0.2s;
+      font-family: inherit;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #4a6fa5;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 0.7rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-primary {
+      background: #4a6fa5;
+      color: white;
+    }
+
+    .btn-primary:hover { background: #3a5a8a; }
+
+    .btn-google {
+      background: white;
+      border: 1px solid #cbd5e0;
+      color: #4a5568;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .btn-google:hover { background: #f7fafc; }
+
+    .separator {
+      text-align: center;
+      margin: 1rem 0;
+      color: #a0aec0;
+      font-size: 0.85rem;
+    }
+
+    #auth-error {
+      background: #fed7d7;
+      color: #c53030;
+      padding: 0.6rem 0.8rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    /* ── App section ── */
+    #app-section {
+      display: none;
+      width: 100%;
+      max-width: 700px;
+      padding: 1rem;
+    }
+
+    header {
+      background: #4a6fa5;
+      color: white;
+      padding: 1rem 1.5rem;
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    header h2 { font-size: 1.2rem; }
+    header span { font-size: 0.85rem; opacity: 0.85; }
+
+    .btn-logout {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.4);
+      padding: 0.4rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.2s;
+    }
+
+    .btn-logout:hover { background: rgba(255,255,255,0.3); }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      margin-bottom: 1.5rem;
+    }
+
+    .card h3 {
+      margin-bottom: 1rem;
+      color: #2d3748;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .btn-add {
+      background: #48bb78;
+      color: white;
+      width: auto;
+      padding: 0.6rem 1.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .btn-add:hover { background: #38a169; }
+
+    #notes-list { list-style: none; }
+
+    #notes-list li {
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    #notes-list li .note-text { flex: 1; color: #2d3748; }
+    #notes-list li .note-date { font-size: 0.75rem; color: #a0aec0; white-space: nowrap; }
+
+    .btn-delete {
+      background: none;
+      border: none;
+      color: #fc8181;
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .btn-delete:hover { color: #e53e3e; }
+
+    #loading {
+      text-align: center;
+      color: #718096;
+      font-size: 0.9rem;
+      padding: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══ SECCIÓN LOGIN/REGISTRO ══ -->
+  <section id="auth-section">
+    <h1>Asuntos Bíblicos</h1>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('login')">Iniciar sesión</button>
+      <button class="tab-btn" onclick="switchTab('register')">Registrarse</button>
+    </div>
+
+    <div id="auth-error"></div>
+
+    <!-- Formulario Login -->
+    <div id="login-form">
+      <div class="form-group">
+        <label>Correo electrónico</label>
+        <input type="email" id="login-email" placeholder="correo@ejemplo.com" />
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="login-pass" placeholder="••••••••" />
+      </div>
+      <button class="btn btn-primary" onclick="loginEmail()">Entrar</button>
+      <div class="separator">— o —</div>
+      <button class="btn btn-google" onclick="loginGoogle()">
+        <svg width="18" height="18" viewBox="0 0 48 48">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        </svg>
+        Continuar con Google
+      </button>
+    </div>
+
+    <!-- Formulario Registro -->
+    <div id="register-form" style="display:none;">
+      <div class="form-group">
+        <label>Nombre</label>
+        <input type="text" id="reg-name" placeholder="Tu nombre" />
+      </div>
+      <div class="form-group">
+        <label>Correo electrónico</label>
+        <input type="email" id="reg-email" placeholder="correo@ejemplo.com" />
+      </div>
+      <div class="form-group">
+        <label>Contraseña (mínimo 6 caracteres)</label>
+        <input type="password" id="reg-pass" placeholder="••••••••" />
+      </div>
+      <button class="btn btn-primary" onclick="registerEmail()">Crear cuenta</button>
+    </div>
+  </section>
+
+  <!-- ══ SECCIÓN APP (tras login) ══ -->
+  <section id="app-section">
+    <header>
+      <div>
+        <h2>Asuntos Bíblicos</h2>
+        <span id="user-email"></span>
+      </div>
+      <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+    </header>
+
+    <!-- Agregar nota -->
+    <div class="card">
+      <h3>Nueva nota</h3>
+      <div class="form-group">
+        <label>Título</label>
+        <input type="text" id="note-title" placeholder="Ej: Reflexión sobre Juan 3:16" />
+      </div>
+      <div class="form-group">
+        <label>Contenido</label>
+        <textarea id="note-content" placeholder="Escribe tu nota aquí..."></textarea>
+      </div>
+      <button class="btn btn-add" onclick="addNote()">Guardar nota</button>
+    </div>
+
+    <!-- Lista de notas -->
+    <div class="card">
+      <h3>Mis notas</h3>
+      <div id="loading">Cargando notas...</div>
+      <ul id="notes-list"></ul>
+    </div>
+  </section>
+
+  <!-- ══ FIREBASE SDK (compat v9 — funciona sin bundler) ══ -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // ══════════════════════════════════════════════
+    //  ⚠️  REEMPLAZA ESTO CON TU CONFIGURACIÓN
+    //     Firebase Console → Configuración del proyecto
+    //     → Tus apps → SDK de Firebase
+    // ══════════════════════════════════════════════
+    const firebaseConfig = {
+      apiKey:            "AIzaSyBhLJ98cyEJPde_wJ1dIXkntkCaa7RLcSI",
+      authDomain:        "asuntos-7537d.firebaseapp.com",
+      projectId:         "asuntos-7537d",
+      storageBucket:     "asuntos-7537d.firebasestorage.app",
+      messagingSenderId: "271877814458",
+      appId:             "1:271877814458:web:21e5ca5d7328a6b15caa83"
+    };
+
+    // Inicializar Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db   = firebase.firestore();
+    const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+    // ══ Tabs ══
+    function switchTab(tab) {
+      document.getElementById('login-form').style.display    = tab === 'login'    ? '' : 'none';
+      document.getElementById('register-form').style.display = tab === 'register' ? '' : 'none';
+      document.querySelectorAll('.tab-btn').forEach((b, i) => {
+        b.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'register' && i === 1));
+      });
+      clearError();
+    }
+
+    // ══ Mostrar errores ══
+    function showError(msg) {
+      const el = document.getElementById('auth-error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function clearError() {
+      document.getElementById('auth-error').style.display = 'none';
+    }
+
+    // ══ Login con email ══
+    function loginEmail() {
+      const email = document.getElementById('login-email').value.trim();
+      const pass  = document.getElementById('login-pass').value;
+      if (!email || !pass) return showError('Completa todos los campos.');
+      clearError();
+      auth.signInWithEmailAndPassword(email, pass)
+        .catch(e => showError(translateFirebaseError(e.code)));
+    }
+
+    // ══ Login con Google ══
+    function loginGoogle() {
+      clearError();
+      auth.signInWithPopup(googleProvider)
+        .catch(e => showError(translateFirebaseError(e.code)));
+    }
+
+    // ══ Registro ══
+    function registerEmail() {
+      const name  = document.getElementById('reg-name').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
+      const pass  = document.getElementById('reg-pass').value;
+      if (!name || !email || !pass) return showError('Completa todos los campos.');
+      clearError();
+      auth.createUserWithEmailAndPassword(email, pass)
+        .then(cred => cred.user.updateProfile({ displayName: name }))
+        .catch(e => showError(translateFirebaseError(e.code)));
+    }
+
+    // ══ Logout ══
+    function logout() {
+      auth.signOut();
+    }
+
+    // ══ Escuchar cambio de sesión ══
+    let unsubscribeNotes = null;
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        // Mostrar app
+        document.getElementById('auth-section').style.display = 'none';
+        document.getElementById('app-section').style.display  = '';
+        document.getElementById('user-email').textContent = user.displayName || user.email;
+        loadNotes(user.uid);
+      } else {
+        // Mostrar login
+        document.getElementById('auth-section').style.display = '';
+        document.getElementById('app-section').style.display  = 'none';
+        if (unsubscribeNotes) { unsubscribeNotes(); unsubscribeNotes = null; }
+        document.getElementById('notes-list').innerHTML = '';
+      }
+    });
+
+    // ══ Cargar notas en tiempo real ══
+    function loadNotes(uid) {
+      unsubscribeNotes = db.collection('notas')
+        .where('uid', '==', uid)
+        .orderBy('createdAt', 'desc')
+        .onSnapshot(snapshot => {
+          document.getElementById('loading').style.display = 'none';
+          const list = document.getElementById('notes-list');
+          list.innerHTML = '';
+          if (snapshot.empty) {
+            list.innerHTML = '<li style="border:none;background:none;color:#a0aec0">Aún no tienes notas.</li>';
+            return;
+          }
+          snapshot.forEach(doc => {
+            const d = doc.data();
+            const date = d.createdAt
+              ? new Date(d.createdAt.toDate()).toLocaleDateString('es', { day:'2-digit', month:'short', year:'numeric' })
+              : '';
+            const li = document.createElement('li');
+            li.innerHTML = `
+              <div class="note-text">
+                <strong>${escapeHtml(d.title)}</strong><br>
+                <span style="font-size:0.9rem">${escapeHtml(d.content)}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem">
+                <span class="note-date">${date}</span>
+                <button class="btn-delete" onclick="deleteNote('${doc.id}')" title="Eliminar">✕</button>
+              </div>
+            `;
+            list.appendChild(li);
+          });
+        }, err => {
+          // Si falta el índice compuesto, Firestore muestra el link en consola
+          console.error(err);
+        });
+    }
+
+    // ══ Agregar nota ══
+    function addNote() {
+      const user    = auth.currentUser;
+      const title   = document.getElementById('note-title').value.trim();
+      const content = document.getElementById('note-content').value.trim();
+      if (!title || !content) return alert('Escribe un título y contenido.');
+      db.collection('notas').add({
+        uid:       user.uid,
+        title,
+        content,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(() => {
+        document.getElementById('note-title').value   = '';
+        document.getElementById('note-content').value = '';
+      });
+    }
+
+    // ══ Eliminar nota ══
+    function deleteNote(id) {
+      if (!confirm('¿Eliminar esta nota?')) return;
+      db.collection('notas').doc(id).delete();
+    }
+
+    // ══ Helpers ══
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function translateFirebaseError(code) {
+      const map = {
+        'auth/user-not-found':       'No existe una cuenta con ese correo.',
+        'auth/wrong-password':        'Contraseña incorrecta.',
+        'auth/email-already-in-use':  'Ese correo ya está registrado.',
+        'auth/weak-password':         'La contraseña debe tener al menos 6 caracteres.',
+        'auth/invalid-email':         'El correo no es válido.',
+        'auth/popup-closed-by-user':  'Cerraste el popup de Google antes de completar.',
+        'auth/network-request-failed':'Error de red. Revisa tu conexión.',
+        'auth/invalid-credential':    'Correo o contraseña incorrectos.',
+      };
+      return map[code] || `Error: ${code}`;
+    }
+  </script>
+</body>
+</html>
