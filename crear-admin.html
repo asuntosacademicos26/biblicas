@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Crear administrador</title>
+  <style>
+    body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #f0f4f8; margin: 0; }
+    .card { background: white; border-radius: 12px; padding: 2rem; max-width: 380px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.1); }
+    h2 { margin-bottom: 1rem; color: #2d3748; }
+    input { width: 100%; padding: 0.6rem 0.8rem; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 0.95rem; margin-bottom: 0.8rem; box-sizing: border-box; }
+    button { width: 100%; padding: 0.7rem; background: #4a6fa5; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .msg { margin-top: 1rem; padding: 0.7rem; border-radius: 8px; font-size: 0.88rem; display: none; }
+    .ok  { background: #c6f6d5; color: #276749; }
+    .err { background: #fed7d7; color: #c53030; }
+    label { font-size: 0.82rem; color: #4a5568; display: block; margin-bottom: 0.2rem; }
+    .field { margin-bottom: 0.8rem; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h2>Crear usuario de prueba</h2>
+  <div class="field">
+    <label>Usuario</label>
+    <input type="text" id="usuario" value="guido.quillimamani" />
+  </div>
+  <div class="field">
+    <label>Contraseña</label>
+    <input type="password" id="password" value="73820210" />
+  </div>
+  <div class="field">
+    <label>Rol</label>
+    <select id="rol" style="width:100%;padding:0.6rem 0.8rem;border:1px solid #cbd5e0;border-radius:8px;font-size:0.95rem;margin-bottom:0.8rem">
+      <option value="admin">Administrador</option>
+      <option value="usuario">Usuario</option>
+    </select>
+  </div>
+  <button onclick="crear()" id="btn">Crear usuario</button>
+  <div class="msg ok"  id="ok"></div>
+  <div class="msg err" id="err"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey:            'AIzaSyDVWI0jkQCxWodyFqH6rXeoi5tWwL00img',
+    authDomain:        'asuntos-academicos.firebaseapp.com',
+    projectId:         'asuntos-academicos',
+    storageBucket:     'asuntos-academicos.firebasestorage.app',
+    messagingSenderId: '278121373859',
+    appId:             '1:278121373859:web:dc6b90481bbe81eb0cdf16',
+    databaseURL:       'https://asuntos-academicos-default-rtdb.firebaseio.com',
+  });
+
+  const auth = firebase.auth();
+  const db   = firebase.database();
+
+  async function crear() {
+    const usuario  = document.getElementById('usuario').value.trim();
+    const password = document.getElementById('password').value;
+    const rol      = document.getElementById('rol').value;
+    const btn      = document.getElementById('btn');
+
+    if (!usuario || !password) return mostrar('err', 'Completa todos los campos.');
+    if (password.length < 6)   return mostrar('err', 'La contraseña debe tener al menos 6 caracteres.');
+
+    btn.disabled = true;
+    btn.textContent = 'Creando…';
+    ocultarMensajes();
+
+    try {
+      const email = usuario + '@asuntos.app';
+      const cred  = await auth.createUserWithEmailAndPassword(email, password);
+
+      await db.ref('usuarios/' + cred.user.uid).set({
+        username: usuario,
+        email:    email,
+        rol:      rol,
+        creadoEn: Date.now(),
+      });
+
+      await auth.signOut();
+      mostrar('ok', `✓ Usuario "${usuario}" creado correctamente. Ya puedes cerrar esta página.`);
+    } catch(e) {
+      mostrar('err', traducir(e.code));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Crear usuario';
+    }
+  }
+
+  function mostrar(tipo, msg) {
+    ocultarMensajes();
+    const el = document.getElementById(tipo);
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function ocultarMensajes() {
+    document.getElementById('ok').style.display  = 'none';
+    document.getElementById('err').style.display = 'none';
+  }
+
+  function traducir(code) {
+    const map = {
+      'auth/email-already-in-use': 'Ese usuario ya existe.',
+      'auth/weak-password':        'La contraseña debe tener al menos 6 caracteres.',
+      'auth/network-request-failed': 'Error de red. Revisa tu conexión.',
+    };
+    return map[code] || 'Error: ' + code;
+  }
+</script>
+</body>
+</html>
