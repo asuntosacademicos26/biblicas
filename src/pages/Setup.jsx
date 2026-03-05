@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { ref, set, get } from 'firebase/database'
-import { auth, db, DOMINIO } from '../firebase'
+import { auth, db, DOMINIO } from '../config/firebase'
 
 export default function Setup() {
   const [usuario,  setUsuario]  = useState('guido.quillimamani')

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { signInWithEmailAndPassword } from 'firebase/auth'
-import { auth, DOMINIO } from '../firebase'
+import { auth, DOMINIO } from '../config/firebase'
 
 export default function LoginModal({ onClose }) {
   const [usuario,  setUsuario]  = useState('')
@@ -8,7 +8,6 @@ export default function LoginModal({ onClose }) {
   const [error,    setError]    = useState('')
   const [cargando, setCargando] = useState(false)
 
-  // Cerrar con Escape
   useEffect(() => {
     const handler = e => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
@@ -22,7 +21,6 @@ export default function LoginModal({ onClose }) {
     setError('')
     try {
       await signInWithEmailAndPassword(auth, usuario + DOMINIO, password)
-      // App.jsx detecta el cambio y muestra el Dashboard
     } catch (err) {
       setError(traducirError(err.code))
       setCargando(false)
@@ -33,14 +31,15 @@ export default function LoginModal({ onClose }) {
     <div style={s.backdrop} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div style={s.modal}>
 
-        {/* Header del modal */}
-        <div style={s.modalHeader}>
-          <h2 style={s.modalTitle}>Ingresar</h2>
+        <div style={s.header}>
+          <div>
+            <h2 style={s.title}>Bienvenido</h2>
+            <p style={s.subtitle}>Ingresa tus credenciales para continuar</p>
+          </div>
           <button style={s.closeBtn} onClick={onClose} title="Cerrar">✕</button>
         </div>
 
-        {/* Body */}
-        <div style={s.modalBody}>
+        <div style={s.body}>
           {error && <div className="alert alert-error">{error}</div>}
 
           <form onSubmit={iniciarSesion}>
@@ -63,7 +62,7 @@ export default function LoginModal({ onClose }) {
                 onChange={e => setPassword(e.target.value)}
               />
             </div>
-            <button className="btn btn-primary btn-block" disabled={cargando}>
+            <button className="btn btn-primary btn-block" style={{ marginTop: '0.4rem' }} disabled={cargando}>
               {cargando ? 'Ingresando…' : 'Ingresar'}
             </button>
           </form>
@@ -88,31 +87,33 @@ function traducirError(code) {
 const s = {
   backdrop: {
     position: 'fixed', inset: 0,
-    background: 'rgba(0,0,0,0.55)',
+    background: 'rgba(2,48,82,0.55)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     zIndex: 1000,
-    animation: 'fadeIn 0.15s ease',
+    animation: 'fadeIn 0.18s ease',
+    backdropFilter: 'blur(4px)',
   },
   modal: {
     background: 'white',
-    borderRadius: 14,
-    width: '100%',
-    maxWidth: 380,
-    margin: '1rem',
-    boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-    animation: 'slideUp 0.2s ease',
+    borderRadius: 18,
+    width: '100%', maxWidth: 400, margin: '1rem',
+    boxShadow: '0 24px 64px rgba(0,0,0,0.22)',
+    animation: 'slideUp 0.22s ease',
     overflow: 'hidden',
   },
-  modalHeader: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '1.2rem 1.5rem 1rem',
-    borderBottom: '1px solid #e2e8f0',
+  header: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+    padding: '1.6rem 1.6rem 1.2rem',
+    background: 'linear-gradient(135deg, #011e35 0%, #023052 100%)',
   },
-  modalTitle: { fontSize: '1.15rem', color: '#1a202c', margin: 0 },
+  title:    { fontSize: '1.25rem', color: 'white', fontWeight: 800, letterSpacing: '-0.01em' },
+  subtitle: { fontSize: '0.82rem', color: 'rgba(255,255,255,0.7)', marginTop: '0.2rem' },
   closeBtn: {
-    background: 'none', border: 'none', fontSize: '1.1rem',
-    color: '#a0aec0', cursor: 'pointer', padding: '0.2rem',
-    lineHeight: 1,
+    background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)',
+    color: 'white', cursor: 'pointer', borderRadius: 8,
+    width: 30, height: 30, fontSize: '0.9rem',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'background 0.2s', flexShrink: 0,
   },
-  modalBody: { padding: '1.4rem 1.5rem 1.5rem' },
+  body: { padding: '1.6rem' },
 }

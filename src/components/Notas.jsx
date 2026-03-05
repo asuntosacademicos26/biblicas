@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ref, onValue, push, remove, serverTimestamp } from 'firebase/database'
-import { db } from '../firebase'
+import { ref, onValue, push, remove } from 'firebase/database'
+import { db } from '../config/firebase'
 
 export default function Notas({ uid }) {
   const [notas,     setNotas]     = useState(null)
@@ -8,16 +8,14 @@ export default function Notas({ uid }) {
   const [contenido, setContenido] = useState('')
 
   useEffect(() => {
-    // Las notas de este usuario se guardan en /notas/{uid}/
     const notasRef = ref(db, `notas/${uid}`)
-    const unsub = onValue(notasRef, snap => {
+    return onValue(notasRef, snap => {
       if (!snap.exists()) { setNotas([]); return }
       const lista = Object.entries(snap.val())
         .map(([id, data]) => ({ id, ...data }))
         .sort((a, b) => b.creadoEn - a.creadoEn)
       setNotas(lista)
     })
-    return unsub
   }, [uid])
 
   async function guardar(e) {
@@ -59,18 +57,20 @@ export default function Notas({ uid }) {
               onChange={e => setContenido(e.target.value)}
             />
           </div>
-          <button
-            className="btn btn-success"
-            disabled={!titulo.trim() || !contenido.trim()}
-          >
+          <button className="btn btn-success" disabled={!titulo.trim() || !contenido.trim()}>
             Guardar nota
           </button>
         </form>
       </div>
 
       <div className="card">
-        <h3>Notas guardadas</h3>
-        {notas === null && <p className="empty-msg">Cargando…</p>}
+        <h3>
+          Notas guardadas
+          {notas && notas.length > 0 && (
+            <span style={n.count}>{notas.length}</span>
+          )}
+        </h3>
+        {notas === null  && <p className="empty-msg">Cargando…</p>}
         {notas?.length === 0 && <p className="empty-msg">Aún no tienes notas guardadas.</p>}
         {notas?.map(nota => (
           <NotaItem key={nota.id} nota={nota} onEliminar={() => eliminar(nota.id)} />
@@ -83,29 +83,47 @@ export default function Notas({ uid }) {
 function NotaItem({ nota, onEliminar }) {
   const fecha = nota.creadoEn
     ? new Date(nota.creadoEn).toLocaleDateString('es', {
-        day: '2-digit', month: 'short', year: 'numeric'
+        day: '2-digit', month: 'short', year: 'numeric',
       })
     : ''
 
   return (
-    <div style={estilos.item}>
-      <div style={{ flex:1 }}>
-        <strong>{nota.titulo}</strong>
-        <p style={{ fontSize:'0.88rem', color:'#4a5568', marginTop:'0.2rem' }}>{nota.contenido}</p>
+    <div
+      style={n.item}
+      onMouseEnter={e => e.currentTarget.style.borderColor = '#023052'}
+      onMouseLeave={e => e.currentTarget.style.borderColor = '#e2e8f0'}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>{nota.titulo}</strong>
+        <p style={n.contenido}>{nota.contenido}</p>
+        <span style={n.fecha}>{fecha}</span>
       </div>
-      <div style={estilos.meta}>
-        <span style={{ fontSize:'0.75rem', color:'#a0aec0' }}>{fecha}</span>
-        <button className="btn-danger" onClick={onEliminar} title="Eliminar">✕</button>
-      </div>
+      <button
+        className="btn-danger-outline"
+        onClick={onEliminar}
+        style={{ flexShrink: 0, alignSelf: 'flex-start' }}
+      >
+        Eliminar
+      </button>
     </div>
   )
 }
 
-const estilos = {
+const n = {
   item: {
-    display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'1rem',
-    background:'#f7fafc', border:'1px solid #e2e8f0', borderRadius:8,
-    padding:'0.75rem 1rem', marginBottom:'0.75rem',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem',
+    background: '#f8fafc',
+    border: '1.5px solid #e2e8f0',
+    borderRadius: 10,
+    padding: '1rem 1.1rem', marginBottom: '0.75rem',
+    transition: 'border-color 0.2s',
   },
-  meta: { display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'0.4rem', minWidth:70 },
+  contenido: { fontSize: '0.87rem', color: '#64748b', marginTop: '0.3rem', lineHeight: 1.6 },
+  fecha: { fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.5rem', display: 'block' },
+  count: {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    background: '#ccdce8', color: '#023052',
+    borderRadius: 99, fontSize: '0.72rem', fontWeight: 700,
+    padding: '0.1rem 0.55rem', marginLeft: '0.5rem', verticalAlign: 'middle',
+  },
 }

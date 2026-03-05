@@ -12,9 +12,9 @@ const firebaseConfig = {
   databaseURL:       'https://asuntos-academicos-default-rtdb.firebaseio.com',
 }
 
-export const app          = initializeApp(firebaseConfig)
-export const auth         = getAuth(app)
-export const db           = getDatabase(app)
+export const app             = initializeApp(firebaseConfig)
+export const auth            = getAuth(app)
+export const db              = getDatabase(app)
 export const firebaseConfig2 = firebaseConfig
 
 // Dominio interno para convertir username → email en Firebase Auth
