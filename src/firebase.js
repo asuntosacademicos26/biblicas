@@ -3,18 +3,18 @@ import { getAuth } from 'firebase/auth'
 import { getDatabase } from 'firebase/database'
 
 const firebaseConfig = {
-  apiKey:            'AIzaSyBhLJ98cyEJPde_wJ1dIXkntkCaa7RLcSI',
-  authDomain:        'asuntos-7537d.firebaseapp.com',
-  projectId:         'asuntos-7537d',
-  storageBucket:     'asuntos-7537d.firebasestorage.app',
-  messagingSenderId: '271877814458',
-  appId:             '1:271877814458:web:21e5ca5d7328a6b15caa83',
-  databaseURL:       'https://asuntos-7537d-default-rtdb.firebaseio.com',
+  apiKey:            'AIzaSyDVWI0jkQCxWodyFqH6rXeoi5tWwL00img',
+  authDomain:        'asuntos-academicos.firebaseapp.com',
+  projectId:         'asuntos-academicos',
+  storageBucket:     'asuntos-academicos.firebasestorage.app',
+  messagingSenderId: '278121373859',
+  appId:             '1:278121373859:web:dc6b90481bbe81eb0cdf16',
+  databaseURL:       'https://asuntos-academicos-default-rtdb.firebaseio.com',
 }
 
-export const app  = initializeApp(firebaseConfig)
-export const auth = getAuth(app)
-export const db   = getDatabase(app)
+export const app          = initializeApp(firebaseConfig)
+export const auth         = getAuth(app)
+export const db           = getDatabase(app)
 export const firebaseConfig2 = firebaseConfig
 
 // Dominio interno para convertir username → email en Firebase Auth
