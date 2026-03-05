@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
 import { ref, get } from 'firebase/database'
 import { auth, db } from './firebase'
-import Login from './pages/Login'
+import Landing from './pages/Landing'
 import Setup from './pages/Setup'
 import Dashboard from './pages/Dashboard'
 
@@ -29,12 +29,8 @@ export default function App() {
       <Routes>
         <Route path="/setup" element={<Setup />} />
         <Route
-          path="/login"
-          element={sesion ? <Navigate to="/" replace /> : <Login />}
-        />
-        <Route
           path="/*"
-          element={sesion ? <Dashboard sesion={sesion} /> : <Navigate to="/login" replace />}
+          element={sesion ? <Dashboard sesion={sesion} /> : <Landing />}
         />
       </Routes>
     </HashRouter>

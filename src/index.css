@@ -112,3 +112,13 @@ input[readonly] { background: #f7fafc; color: #718096; }
 .users-table tr:last-child td { border-bottom: none; }
 
 .empty-msg { color: #a0aec0; font-size: 0.88rem; padding: 0.5rem 0; }
+
+/* ── Animaciones modal ── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
