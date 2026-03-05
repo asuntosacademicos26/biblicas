@@ -4,7 +4,7 @@ import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth'
 import { ref, set } from 'firebase/database'
 import { db, firebaseConfig2, DOMINIO } from '../firebase'
 
-export default function CrearUsuarioModal({ onClose }) {
+export default function CrearUsuarioModal({ onClose, onSuccess }) {
   const [usuario,  setUsuario]  = useState('')
   const [password, setPassword] = useState('')
   const rol = 'admin'
@@ -40,10 +40,8 @@ export default function CrearUsuarioModal({ onClose }) {
         creadoEn: Date.now(),
       })
 
-      setEstado({ tipo:'success', msg:`✓ Usuario "${usuario.trim()}" creado correctamente.` })
-      setUsuario('')
-      setPassword('')
-      setRol('usuario')
+      onClose()
+      onSuccess(`Usuario "${usuario.trim()}" creado con éxito`)
     } catch (err) {
       setEstado({ tipo:'error', msg: traducirError(err.code) })
     } finally {

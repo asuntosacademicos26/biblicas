@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import LoginModal from '../components/LoginModal'
 import CrearUsuarioModal from '../components/CrearUsuarioModal'
+import Toast from '../components/Toast'
 
 export default function Landing() {
   const [modalAbierto,       setModalAbierto]       = useState(false)
   const [modalCrearAbierto,  setModalCrearAbierto]  = useState(false)
+  const [toast,              setToast]              = useState(null)
 
   return (
     <div style={s.page}>
@@ -79,7 +81,15 @@ export default function Landing() {
 
       {/* ── Modales ── */}
       {modalAbierto      && <LoginModal        onClose={() => setModalAbierto(false)} />}
-      {modalCrearAbierto && <CrearUsuarioModal onClose={() => setModalCrearAbierto(false)} />}
+      {modalCrearAbierto && (
+        <CrearUsuarioModal
+          onClose={() => setModalCrearAbierto(false)}
+          onSuccess={msg => setToast(msg)}
+        />
+      )}
+
+      {/* ── Toast éxito ── */}
+      {toast && <Toast mensaje={toast} onClose={() => setToast(null)} />}
     </div>
   )
 }
