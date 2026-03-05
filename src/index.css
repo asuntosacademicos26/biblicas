@@ -1,0 +1,114 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: #f0f4f8;
+  min-height: 100vh;
+  color: #2d3748;
+}
+
+/* ── Inputs ── */
+input, select, textarea {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  background: white;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #4a6fa5;
+}
+textarea { resize: vertical; min-height: 80px; }
+input[readonly] { background: #f7fafc; color: #718096; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.65rem 1.2rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-block  { width: 100%; }
+.btn-primary { background: #4a6fa5; color: white; }
+.btn-primary:hover:not(:disabled) { background: #3a5a8a; }
+.btn-success { background: #48bb78; color: white; }
+.btn-success:hover:not(:disabled) { background: #38a169; }
+.btn-danger  { background: none; border: none; color: #fc8181; cursor: pointer; font-size: 1rem; padding: 0; }
+.btn-danger:hover { color: #e53e3e; }
+.btn-ghost {
+  background: rgba(255,255,255,0.18);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.35);
+  font-size: 0.82rem;
+  padding: 0.35rem 0.9rem;
+}
+.btn-ghost:hover { background: rgba(255,255,255,0.28); }
+
+/* ── Form group ── */
+.form-group { margin-bottom: 1rem; }
+.form-group label {
+  display: block;
+  font-size: 0.85rem;
+  color: #4a5568;
+  margin-bottom: 0.3rem;
+  font-weight: 500;
+}
+
+/* ── Alert ── */
+.alert {
+  padding: 0.65rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+.alert-error   { background: #fed7d7; color: #c53030; }
+.alert-success { background: #c6f6d5; color: #276749; }
+
+/* ── Card ── */
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.4rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  margin-bottom: 1.2rem;
+}
+.card h3 {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  color: #2d3748;
+}
+
+/* ── Badge ── */
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.badge-admin   { background: #bee3f8; color: #2b6cb0; }
+.badge-usuario { background: #e9d8fd; color: #553c9a; }
+
+/* ── Table ── */
+.users-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.users-table th, .users-table td {
+  padding: 0.6rem 0.8rem;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+.users-table th { color: #718096; font-weight: 600; background: #f7fafc; }
+.users-table tr:last-child td { border-bottom: none; }
+
+.empty-msg { color: #a0aec0; font-size: 0.88rem; padding: 0.5rem 0; }
