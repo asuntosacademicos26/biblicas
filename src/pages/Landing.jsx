@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import LoginModal from '../components/LoginModal'
+import CrearUsuarioModal from '../components/CrearUsuarioModal'
 
 export default function Landing() {
-  const [modalAbierto, setModalAbierto] = useState(false)
+  const [modalAbierto,       setModalAbierto]       = useState(false)
+  const [modalCrearAbierto,  setModalCrearAbierto]  = useState(false)
 
   return (
     <div style={s.page}>
@@ -14,12 +16,20 @@ export default function Landing() {
             <span style={s.navLogo}>✝</span>
             <span style={s.navTitle}>Clases Bíblicas UPEU</span>
           </div>
-          <button
-            style={s.btnIngresar}
-            onClick={() => setModalAbierto(true)}
-          >
-            Ingresar
-          </button>
+          <div style={{ display:'flex', gap:'0.6rem' }}>
+            <button
+              style={s.btnCrear}
+              onClick={() => setModalCrearAbierto(true)}
+            >
+              Crear usuario
+            </button>
+            <button
+              style={s.btnIngresar}
+              onClick={() => setModalAbierto(true)}
+            >
+              Ingresar
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -67,10 +77,9 @@ export default function Landing() {
         <p>© {new Date().getFullYear()} Clases Bíblicas UPEU · Universidad Peruana Unión</p>
       </footer>
 
-      {/* ── Modal Login ── */}
-      {modalAbierto && (
-        <LoginModal onClose={() => setModalAbierto(false)} />
-      )}
+      {/* ── Modales ── */}
+      {modalAbierto      && <LoginModal        onClose={() => setModalAbierto(false)} />}
+      {modalCrearAbierto && <CrearUsuarioModal onClose={() => setModalCrearAbierto(false)} />}
     </div>
   )
 }
@@ -104,13 +113,20 @@ const s = {
   navBrand: { display: 'flex', alignItems: 'center', gap: '0.6rem' },
   navLogo:  { fontSize: '1.4rem', color: '#4a6fa5' },
   navTitle: { fontWeight: 700, fontSize: '1.05rem', color: '#1a202c' },
+  btnCrear: {
+    background: 'white', color: '#4a6fa5',
+    border: '1.5px solid #4a6fa5', borderRadius: 8,
+    padding: '0.5rem 1.3rem',
+    fontSize: '0.9rem', fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
   btnIngresar: {
     background: '#4a6fa5', color: 'white',
     border: 'none', borderRadius: 8,
     padding: '0.5rem 1.3rem',
     fontSize: '0.9rem', fontWeight: 600,
     cursor: 'pointer',
-    transition: 'background 0.2s',
     fontFamily: 'inherit',
   },
 
