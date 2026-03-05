@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import { ref, get } from 'firebase/database'
 import { auth, db } from './firebase'
 import Login from './pages/Login'
 import Setup from './pages/Setup'
@@ -13,8 +13,8 @@ export default function App() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async user => {
       if (user) {
-        const snap = await getDoc(doc(db, 'usuarios', user.uid))
-        setSesion(snap.exists() ? { uid: user.uid, ...snap.data() } : null)
+        const snap = await get(ref(db, `usuarios/${user.uid}`))
+        setSesion(snap.exists() ? { uid: user.uid, ...snap.val() } : null)
       } else {
         setSesion(null)
       }

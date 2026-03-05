@@ -1,29 +1,29 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { doc, setDoc, collection, getDocs, limit, query, serverTimestamp } from 'firebase/firestore'
+import { ref, set, get } from 'firebase/database'
 import { auth, db, DOMINIO } from '../firebase'
 
 export default function Setup() {
   const [usuario,  setUsuario]  = useState('guido.quillimamani')
   const [password, setPassword] = useState('73820210')
-  const [estado,   setEstado]   = useState(null) // { tipo, msg }
+  const [estado,   setEstado]   = useState(null)
   const [cargando, setCargando] = useState(false)
   const navigate = useNavigate()
 
   async function crearAdmin(e) {
     e.preventDefault()
-    if (!usuario || !password) return setEstado({ tipo: 'error', msg: 'Completa los campos.' })
-    if (password.length < 6)   return setEstado({ tipo: 'error', msg: 'La contraseña debe tener al menos 6 caracteres.' })
+    if (!usuario || !password) return setEstado({ tipo:'error', msg:'Completa los campos.' })
+    if (password.length < 6)   return setEstado({ tipo:'error', msg:'La contraseña debe tener al menos 6 caracteres.' })
 
     setCargando(true)
     setEstado(null)
 
     try {
       // Verificar que no existan usuarios ya
-      const snap = await getDocs(query(collection(db, 'usuarios'), limit(1)))
-      if (!snap.empty) {
-        setEstado({ tipo: 'error', msg: 'Ya existe un administrador. Ve a iniciar sesión.' })
+      const snap = await get(ref(db, 'usuarios'))
+      if (snap.exists()) {
+        setEstado({ tipo:'error', msg:'Ya existe un administrador. Ve a iniciar sesión.' })
         setCargando(false)
         return
       }
@@ -31,16 +31,15 @@ export default function Setup() {
       const email = usuario + DOMINIO
       const cred  = await createUserWithEmailAndPassword(auth, email, password)
 
-      await setDoc(doc(db, 'usuarios', cred.user.uid), {
+      await set(ref(db, `usuarios/${cred.user.uid}`), {
         username: usuario,
         email,
         rol:      'admin',
-        creadoEn: serverTimestamp(),
+        creadoEn: Date.now(),
       })
-
-      // App.jsx detecta el login y redirige al dashboard automáticamente
+      // App.jsx detecta el login y redirige al dashboard
     } catch (err) {
-      setEstado({ tipo: 'error', msg: traducirError(err.code) })
+      setEstado({ tipo:'error', msg: traducirError(err.code) })
       setCargando(false)
     }
   }
@@ -89,8 +88,8 @@ export default function Setup() {
 
 function traducirError(code) {
   const map = {
-    'auth/email-already-in-use': 'Ese usuario ya existe.',
-    'auth/weak-password':        'La contraseña debe tener al menos 6 caracteres.',
+    'auth/email-already-in-use':   'Ese usuario ya existe.',
+    'auth/weak-password':          'La contraseña debe tener al menos 6 caracteres.',
     'auth/network-request-failed': 'Error de red.',
   }
   return map[code] ?? `Error: ${code}`

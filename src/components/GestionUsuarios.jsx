@@ -1,21 +1,9 @@
 import { useEffect, useState } from 'react'
 import { initializeApp, deleteApp } from 'firebase/app'
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth'
-import {
-  collection, onSnapshot, doc, setDoc, deleteDoc,
-  orderBy, query, serverTimestamp
-} from 'firebase/firestore'
-import { db, DOMINIO } from '../firebase'
-
-// Config duplicada para crear usuarios sin cerrar sesión del admin
-const firebaseConfig = {
-  apiKey:            'AIzaSyBhLJ98cyEJPde_wJ1dIXkntkCaa7RLcSI',
-  authDomain:        'asuntos-7537d.firebaseapp.com',
-  projectId:         'asuntos-7537d',
-  storageBucket:     'asuntos-7537d.firebasestorage.app',
-  messagingSenderId: '271877814458',
-  appId:             '1:271877814458:web:21e5ca5d7328a6b15caa83',
-}
+import { ref, onValue, set, remove } from 'firebase/database'
+import { getDatabase } from 'firebase/database'
+import { db, firebaseConfig2, DOMINIO } from '../firebase'
 
 export default function GestionUsuarios({ uidAdmin }) {
   const [usuarios,  setUsuarios]  = useState(null)
@@ -26,9 +14,12 @@ export default function GestionUsuarios({ uidAdmin }) {
   const [cargando,  setCargando]  = useState(false)
 
   useEffect(() => {
-    const q = query(collection(db, 'usuarios'), orderBy('creadoEn', 'asc'))
-    return onSnapshot(q, snap => {
-      setUsuarios(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    return onValue(ref(db, 'usuarios'), snap => {
+      if (!snap.exists()) { setUsuarios([]); return }
+      const lista = Object.entries(snap.val())
+        .map(([id, data]) => ({ id, ...data }))
+        .sort((a, b) => a.creadoEn - b.creadoEn)
+      setUsuarios(lista)
     })
   }, [])
 
@@ -43,17 +34,17 @@ export default function GestionUsuarios({ uidAdmin }) {
     let appAux = null
     try {
       // Instancia secundaria → no cierra sesión del admin
-      appAux = initializeApp(firebaseConfig, 'aux_' + Date.now())
+      appAux = initializeApp(firebaseConfig2, 'aux_' + Date.now())
       const authAux = getAuth(appAux)
 
       const email = nuUsuario.trim() + DOMINIO
       const cred  = await createUserWithEmailAndPassword(authAux, email, nuPass)
 
-      await setDoc(doc(db, 'usuarios', cred.user.uid), {
+      await set(ref(db, `usuarios/${cred.user.uid}`), {
         username: nuUsuario.trim(),
         email,
         rol:      nuRol,
-        creadoEn: serverTimestamp(),
+        creadoEn: Date.now(),
       })
 
       setEstado({ tipo:'success', msg:`Usuario "${nuUsuario.trim()}" creado correctamente.` })
@@ -70,12 +61,11 @@ export default function GestionUsuarios({ uidAdmin }) {
 
   async function eliminarUsuario(id, username) {
     if (!confirm(`¿Eliminar al usuario "${username}"?`)) return
-    await deleteDoc(doc(db, 'usuarios', id))
+    await remove(ref(db, `usuarios/${id}`))
   }
 
   return (
     <>
-      {/* Crear usuario */}
       <div className="card">
         <h3>Crear nuevo usuario</h3>
 
@@ -115,7 +105,6 @@ export default function GestionUsuarios({ uidAdmin }) {
         </form>
       </div>
 
-      {/* Lista usuarios */}
       <div className="card">
         <h3>Usuarios registrados</h3>
         {usuarios === null && <p className="empty-msg">Cargando…</p>}
@@ -123,11 +112,7 @@ export default function GestionUsuarios({ uidAdmin }) {
         {usuarios && usuarios.length > 0 && (
           <table className="users-table">
             <thead>
-              <tr>
-                <th>Usuario</th>
-                <th>Rol</th>
-                <th>Acción</th>
-              </tr>
+              <tr><th>Usuario</th><th>Rol</th><th>Acción</th></tr>
             </thead>
             <tbody>
               {usuarios.map(u => (

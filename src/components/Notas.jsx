@@ -1,33 +1,32 @@
 import { useEffect, useState } from 'react'
-import {
-  collection, query, where, orderBy,
-  onSnapshot, addDoc, deleteDoc, doc, serverTimestamp
-} from 'firebase/firestore'
+import { ref, onValue, push, remove, serverTimestamp } from 'firebase/database'
 import { db } from '../firebase'
 
 export default function Notas({ uid }) {
-  const [notas,     setNotas]     = useState(null) // null = cargando
+  const [notas,     setNotas]     = useState(null)
   const [titulo,    setTitulo]    = useState('')
   const [contenido, setContenido] = useState('')
 
   useEffect(() => {
-    const q = query(
-      collection(db, 'notas'),
-      where('uid', '==', uid),
-      orderBy('creadoEn', 'desc')
-    )
-    const unsub = onSnapshot(q, snap => {
-      setNotas(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    }, err => console.error(err))
+    // Las notas de este usuario se guardan en /notas/{uid}/
+    const notasRef = ref(db, `notas/${uid}`)
+    const unsub = onValue(notasRef, snap => {
+      if (!snap.exists()) { setNotas([]); return }
+      const lista = Object.entries(snap.val())
+        .map(([id, data]) => ({ id, ...data }))
+        .sort((a, b) => b.creadoEn - a.creadoEn)
+      setNotas(lista)
+    })
     return unsub
   }, [uid])
 
   async function guardar(e) {
     e.preventDefault()
     if (!titulo.trim() || !contenido.trim()) return
-    await addDoc(collection(db, 'notas'), {
-      uid, titulo: titulo.trim(), contenido: contenido.trim(),
-      creadoEn: serverTimestamp(),
+    await push(ref(db, `notas/${uid}`), {
+      titulo:    titulo.trim(),
+      contenido: contenido.trim(),
+      creadoEn:  Date.now(),
     })
     setTitulo('')
     setContenido('')
@@ -35,12 +34,11 @@ export default function Notas({ uid }) {
 
   async function eliminar(id) {
     if (!confirm('¿Eliminar esta nota?')) return
-    await deleteDoc(doc(db, 'notas', id))
+    await remove(ref(db, `notas/${uid}/${id}`))
   }
 
   return (
     <>
-      {/* Formulario nueva nota */}
       <div className="card">
         <h3>Nueva nota</h3>
         <form onSubmit={guardar}>
@@ -70,7 +68,6 @@ export default function Notas({ uid }) {
         </form>
       </div>
 
-      {/* Lista */}
       <div className="card">
         <h3>Notas guardadas</h3>
         {notas === null && <p className="empty-msg">Cargando…</p>}
@@ -85,19 +82,19 @@ export default function Notas({ uid }) {
 
 function NotaItem({ nota, onEliminar }) {
   const fecha = nota.creadoEn
-    ? new Date(nota.creadoEn.toDate()).toLocaleDateString('es', {
+    ? new Date(nota.creadoEn).toLocaleDateString('es', {
         day: '2-digit', month: 'short', year: 'numeric'
       })
     : ''
 
   return (
     <div style={estilos.item}>
-      <div style={{ flex: 1 }}>
+      <div style={{ flex:1 }}>
         <strong>{nota.titulo}</strong>
-        <p style={{ fontSize: '0.88rem', color: '#4a5568', marginTop: '0.2rem' }}>{nota.contenido}</p>
+        <p style={{ fontSize:'0.88rem', color:'#4a5568', marginTop:'0.2rem' }}>{nota.contenido}</p>
       </div>
       <div style={estilos.meta}>
-        <span style={{ fontSize: '0.75rem', color: '#a0aec0' }}>{fecha}</span>
+        <span style={{ fontSize:'0.75rem', color:'#a0aec0' }}>{fecha}</span>
         <button className="btn-danger" onClick={onEliminar} title="Eliminar">✕</button>
       </div>
     </div>
@@ -106,9 +103,9 @@ function NotaItem({ nota, onEliminar }) {
 
 const estilos = {
   item: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem',
-    background: '#f7fafc', border: '1px solid #e2e8f0', borderRadius: 8,
-    padding: '0.75rem 1rem', marginBottom: '0.75rem',
+    display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'1rem',
+    background:'#f7fafc', border:'1px solid #e2e8f0', borderRadius:8,
+    padding:'0.75rem 1rem', marginBottom:'0.75rem',
   },
   meta: { display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'0.4rem', minWidth:70 },
 }
