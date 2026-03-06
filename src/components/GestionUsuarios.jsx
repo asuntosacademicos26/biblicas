@@ -178,7 +178,7 @@ function ModalCrearUsuario({ onClose, onSuccess }) {
 
   return (
     <div style={m.backdrop} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={m.modal}>
+      <div className="modal-inner" style={m.modal}>
         <div style={m.header}>
           <div>
             <h2 style={m.title}>Crear usuario</h2>
@@ -191,7 +191,7 @@ function ModalCrearUsuario({ onClose, onSuccess }) {
           {estado && <div className={`alert alert-${estado.tipo}`}>{estado.msg}</div>}
 
           <form onSubmit={crear}>
-            <div style={m.grid2}>
+            <div className="form-grid2" style={m.grid2}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label>Usuario <Req /></label>
                 <input placeholder="nombre.apellido" value={form.usuario} onChange={set_('usuario')} autoFocus />
@@ -294,7 +294,7 @@ function ModalEditarUsuario({ usuario, onClose }) {
 
   return (
     <div style={m.backdrop} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={m.modal}>
+      <div className="modal-inner" style={m.modal}>
         <div style={m.header}>
           <div>
             <h2 style={m.title}>Editar usuario</h2>
@@ -312,7 +312,7 @@ function ModalEditarUsuario({ usuario, onClose }) {
               <input placeholder="Juan Pérez López" value={form.nombreCompleto} onChange={set_('nombreCompleto')} autoFocus />
             </div>
 
-            <div style={m.grid2}>
+            <div className="form-grid2" style={m.grid2}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label>DNI <Req /></label>
                 <input placeholder="12345678" maxLength={8} value={form.dni} onChange={set_('dni')} />

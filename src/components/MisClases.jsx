@@ -353,7 +353,7 @@ function DetalleClase({ clase, onVolver }) {
         </div>
 
         {/* Tabs */}
-        <div style={s.tabs}>
+        <div style={s.tabs} className="tabs-scroll">
           <button style={{ ...s.tab, ...(tab === 'alumnos'    ? s.tabActivo : {}) }} onClick={() => setTab('alumnos')}>
             <IconPersonas /> Alumnos
           </button>
@@ -378,26 +378,28 @@ function DetalleClase({ clase, onVolver }) {
             {alumnos.length === 0 && <p className="empty-msg">No hay alumnos inscritos.</p>}
             {alumnos.length > 0 && alumnosFiltrados.length === 0 && <p className="empty-msg">Sin resultados para "{busqueda}".</p>}
             {alumnosFiltrados.length > 0 && (
-              <table className="users-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: 36 }}>#</th>
-                    <th>Nombre completo</th>
-                    <th>DNI</th>
-                    <th>Cód. estudiante</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {alumnosFiltrados.map((a, i) => (
-                    <tr key={a.id}>
-                      <td style={{ color: '#94a3b8' }}>{i + 1}</td>
-                      <td><strong style={{ color: '#023052' }}>{a.nombreCompleto}</strong></td>
-                      <td style={{ color: '#475569' }}>{a.dni || '—'}</td>
-                      <td style={{ color: '#475569' }}>{a.codigoEstudiante || '—'}</td>
+              <div className="table-scroll">
+                <table className="users-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 36 }}>#</th>
+                      <th>Nombre completo</th>
+                      <th>DNI</th>
+                      <th>Cód. estudiante</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {alumnosFiltrados.map((a, i) => (
+                      <tr key={a.id}>
+                        <td style={{ color: '#94a3b8' }}>{i + 1}</td>
+                        <td><strong style={{ color: '#023052' }}>{a.nombreCompleto}</strong></td>
+                        <td style={{ color: '#475569' }}>{a.dni || '—'}</td>
+                        <td style={{ color: '#475569' }}>{a.codigoEstudiante || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </>
         )}

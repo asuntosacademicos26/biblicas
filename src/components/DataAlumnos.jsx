@@ -331,7 +331,7 @@ function ModalAgregarAlumno({ onClose }) {
 
   return (
     <div style={m.backdrop} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={m.modal}>
+      <div className="modal-inner" style={m.modal}>
 
         <div style={m.header}>
           <div>
@@ -348,7 +348,7 @@ function ModalAgregarAlumno({ onClose }) {
 
             {/* Sección datos personales */}
             <div style={m.seccionLabel}><IconPersona /> Datos personales</div>
-            <div style={m.grid2}>
+            <div className="form-grid2" style={m.grid2}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label>Nombre <Req /></label>
                 <input placeholder="Juan" value={form.nombre} onChange={set_('nombre')} autoFocus />
@@ -359,7 +359,7 @@ function ModalAgregarAlumno({ onClose }) {
               </div>
             </div>
 
-            <div style={m.grid2}>
+            <div className="form-grid2" style={m.grid2}>
               <div className="form-group" style={{ margin: 0, marginTop: '0.9rem' }}>
                 <label>DNI</label>
                 <input placeholder="12345678" maxLength={8} value={form.dni} onChange={set_('dni')} />
@@ -370,7 +370,7 @@ function ModalAgregarAlumno({ onClose }) {
               </div>
             </div>
 
-            <div style={m.grid2}>
+            <div className="form-grid2" style={m.grid2}>
               <div className="form-group" style={{ margin: 0, marginTop: '0.9rem' }}>
                 <label>Fecha de nacimiento</label>
                 <input type="date" value={form.fechaNacimiento} onChange={set_('fechaNacimiento')} />
@@ -435,7 +435,7 @@ function ModalAgregarAlumno({ onClose }) {
               </select>
             </div>
 
-            <div style={m.grid2}>
+            <div className="form-grid2" style={m.grid2}>
               <div className="form-group" style={{ margin: 0, marginTop: '0.9rem' }}>
                 <label>Ciclo</label>
                 <select value={form.ciclo} onChange={set_('ciclo')}>
@@ -516,7 +516,7 @@ function ModalDetalleAlumno({ alumno, onClose }) {
 
   return (
     <div style={m.backdrop} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={m.modal}>
+      <div className="modal-inner" style={m.modal}>
         <div style={m.header}>
           <div>
             <h2 style={m.title}>{alumno.nombre} {alumno.apellido}</h2>
@@ -530,7 +530,7 @@ function ModalDetalleAlumno({ alumno, onClose }) {
 
           <form onSubmit={guardar}>
             <div style={m.seccionLabel}><IconPersona /> Datos personales</div>
-            <div style={m.grid2}>
+            <div className="form-grid2" style={m.grid2}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label>Nombre <Req /></label>
                 <input value={form.nombre} onChange={set_('nombre')} />
@@ -541,7 +541,7 @@ function ModalDetalleAlumno({ alumno, onClose }) {
               </div>
             </div>
 
-            <div style={m.grid2}>
+            <div className="form-grid2" style={m.grid2}>
               <div className="form-group" style={{ margin: 0, marginTop: '0.9rem' }}>
                 <label>DNI</label>
                 <input maxLength={8} value={form.dni || ''} onChange={set_('dni')} />
@@ -552,7 +552,7 @@ function ModalDetalleAlumno({ alumno, onClose }) {
               </div>
             </div>
 
-            <div style={m.grid2}>
+            <div className="form-grid2" style={m.grid2}>
               <div className="form-group" style={{ margin: 0, marginTop: '0.9rem' }}>
                 <label>Fecha de nacimiento</label>
                 <input type="date" value={form.fechaNacimiento || ''} onChange={set_('fechaNacimiento')} />
@@ -563,7 +563,7 @@ function ModalDetalleAlumno({ alumno, onClose }) {
               </div>
             </div>
 
-            <div style={m.grid2}>
+            <div className="form-grid2" style={m.grid2}>
               <div className="form-group" style={{ margin: 0, marginTop: '0.9rem' }}>
                 <label>Correo electrónico</label>
                 <input type="email" value={form.correo || ''} onChange={set_('correo')} />
@@ -609,7 +609,7 @@ function ModalDetalleAlumno({ alumno, onClose }) {
               </select>
             </div>
 
-            <div style={m.grid2}>
+            <div className="form-grid2" style={m.grid2}>
               <div className="form-group" style={{ margin: 0, marginTop: '0.9rem' }}>
                 <label>Ciclo</label>
                 <select value={form.ciclo || ''} onChange={set_('ciclo')}>

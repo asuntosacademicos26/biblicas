@@ -319,7 +319,7 @@ function ModalAgregarFacultad({ onClose, onSuccess }) {
 
   return (
     <div style={m.backdrop} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={m.modal}>
+      <div className="modal-inner" style={m.modal}>
         <div style={m.header}>
           <div>
             <h2 style={m.title}>Agregar facultad</h2>
@@ -461,7 +461,7 @@ function ModalEditarFacultad({ facultad, onClose }) {
 
   return (
     <div style={m.backdrop} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={m.modal}>
+      <div className="modal-inner" style={m.modal}>
         <div style={m.header}>
           <div>
             <h2 style={m.title}>Editar facultad</h2>

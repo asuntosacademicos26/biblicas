@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../config/firebase'
+import useIsMobile from '../hooks/useIsMobile'
 import GestionUsuarios from '../components/GestionUsuarios'
 import ClasesBiblicas from '../components/ClasesBiblicas'
 import DataAlumnos from '../components/DataAlumnos'
@@ -67,7 +68,8 @@ const MODULOS_ADMIN = [
 ]
 
 export default function Dashboard({ sesion }) {
-  const esAdmin = sesion.rol === 'admin'
+  const esAdmin  = sesion.rol === 'admin'
+  const isMobile = useIsMobile()
   const [vista, setVista] = useState(esAdmin ? 'home' : 'misclases')
 
   function renderVista() {
@@ -86,27 +88,27 @@ export default function Dashboard({ sesion }) {
     <div style={s.page}>
 
       {/* ── Header ── */}
-      <header style={s.header}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <header style={{ ...s.header, padding: isMobile ? '0 1rem' : '0 2rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {esAdmin && vista !== 'home' && (
-            <button style={s.backBtn} onClick={() => setVista('home')} title="Volver">
-              ←
-            </button>
+            <button style={s.backBtn} onClick={() => setVista('home')} title="Volver">←</button>
           )}
           <div>
             <div style={s.headerTitle}>Clases Bíblicas</div>
-            <div style={s.headerSub}>
-              {sesion.username}
-              <span style={s.rolBadge}>{esAdmin ? 'Administrador' : 'Docente'}</span>
-            </div>
+            {!isMobile && (
+              <div style={s.headerSub}>
+                {sesion.username}
+                <span style={s.rolBadge}>{esAdmin ? 'Administrador' : 'Docente'}</span>
+              </div>
+            )}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           {!esAdmin && (
             <TabBtn label="Mis clases" activa={vista === 'misclases'} onClick={() => setVista('misclases')} />
           )}
           <button className="btn btn-ghost" onClick={() => signOut(auth)}>
-            Cerrar sesión
+            {isMobile ? 'Salir' : 'Cerrar sesión'}
           </button>
         </div>
       </header>
@@ -342,7 +344,7 @@ const s = {
   },
 
   // Main
-  main: { flex: 1, padding: '2rem', maxWidth: 1200, width: '100%', margin: '0 auto' },
+  main: { flex: 1, padding: '1.2rem', maxWidth: 1200, width: '100%', margin: '0 auto' },
 
   // Welcome
   welcomeBox: { marginBottom: '2rem' },

@@ -503,7 +503,7 @@ function ModalCrearClase({ docentes, onClose }) {
             {/* Ubicación académica */}
             <div style={m.secLabel}><IconFacultad /> Ubicación académica</div>
 
-            <div style={m.grid2}>
+            <div className="form-grid2" style={m.grid2}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label>Facultad</label>
                 <select value={facultad} onChange={e => { setFacultad(e.target.value); setEscuela(''); setCiclo(''); setGrupo('') }}>
@@ -706,7 +706,7 @@ function ModalAgregarAlumno({ claseId, onClose }) {
 
   return (
     <div style={m.backdrop} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={m.modal}>
+      <div className="modal-inner" style={m.modal}>
         <div style={m.header}>
           <div>
             <h2 style={m.title}>Agregar alumno</h2>

@@ -210,9 +210,9 @@ const s = {
   },
   docenteHeader: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '0.85rem 1.1rem', cursor: 'pointer', gap: '1rem',
+    padding: '0.85rem 1.1rem', cursor: 'pointer', gap: '0.75rem', flexWrap: 'wrap',
   },
-  docenteLeft: { display: 'flex', alignItems: 'center', gap: '0.85rem', minWidth: 0 },
+  docenteLeft: { display: 'flex', alignItems: 'center', gap: '0.85rem', minWidth: 0, flex: 1 },
   avatar: {
     width: 40, height: 40, borderRadius: '50%',
     background: 'linear-gradient(135deg, #023052, #04508a)',

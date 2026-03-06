@@ -29,7 +29,7 @@ export default function LoginModal({ onClose }) {
 
   return (
     <div style={s.backdrop} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={s.modal}>
+      <div className="modal-inner" style={s.modal}>
 
         <div style={s.header}>
           <div>

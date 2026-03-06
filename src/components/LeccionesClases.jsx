@@ -177,7 +177,7 @@ function ModalLeccion({ leccion, siguiente, onClose }) {
 
   return (
     <div style={m.backdrop} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={m.modal}>
+      <div className="modal-inner" style={m.modal}>
         <div style={m.header}>
           <div>
             <h2 style={m.title}>{esEdicion ? 'Editar lección' : 'Nueva lección bíblica'}</h2>
