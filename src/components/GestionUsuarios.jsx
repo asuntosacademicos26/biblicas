@@ -8,6 +8,7 @@ export default function GestionUsuarios({ uidAdmin }) {
   const [usuarios,     setUsuarios]     = useState(null)
   const [modalCrear,   setModalCrear]   = useState(false)
   const [usuarioEditar, setUsuarioEditar] = useState(null)
+  const [toastExito,   setToastExito]   = useState(null)
 
   useEffect(() => {
     return onValue(ref(db, 'usuarios'), snap => {
@@ -93,7 +94,24 @@ export default function GestionUsuarios({ uidAdmin }) {
       </div>
 
       {modalCrear && (
-        <ModalCrearUsuario onClose={() => setModalCrear(false)} />
+        <ModalCrearUsuario
+          onClose={() => setModalCrear(false)}
+          onSuccess={nombre => {
+            setModalCrear(false)
+            setToastExito(nombre)
+            setTimeout(() => setToastExito(null), 3500)
+          }}
+        />
+      )}
+
+      {toastExito && (
+        <div style={f.toastCentro}>
+          <div style={f.toastIcono}>✓</div>
+          <div>
+            <div style={f.toastTitulo}>Usuario creado con éxito</div>
+            <div style={f.toastSub}>"{toastExito}" ya puede iniciar sesión</div>
+          </div>
+        </div>
       )}
       {usuarioEditar && (
         <ModalEditarUsuario
@@ -108,7 +126,7 @@ export default function GestionUsuarios({ uidAdmin }) {
 /* ══════════════════════════════
    MODAL CREAR USUARIO
 ══════════════════════════════ */
-function ModalCrearUsuario({ onClose }) {
+function ModalCrearUsuario({ onClose, onSuccess }) {
   const [form,     setForm]     = useState({ usuario: '', nombreCompleto: '', dni: '', correo: '', celular: '', password: '', rol: 'docente' })
   const [estado,   setEstado]   = useState(null)
   const [cargando, setCargando] = useState(false)
@@ -149,8 +167,7 @@ function ModalCrearUsuario({ onClose }) {
         creadoEn: Date.now(),
       })
 
-      setEstado({ tipo: 'success', msg: `Usuario "${usuario.trim()}" creado correctamente.` })
-      setForm({ usuario: '', nombreCompleto: '', dni: '', correo: '', celular: '', password: '', rol: 'docente' })
+      onSuccess(usuario.trim())
     } catch (err) {
       setEstado({ tipo: 'error', msg: traducirError(err.code) })
     } finally {
@@ -386,6 +403,27 @@ const f = {
   },
   btnCrear:  { padding: '0.45rem 1.1rem', fontSize: '0.86rem' },
   tuCuenta:  { fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic' },
+  toastCentro: {
+    position: 'fixed', top: '50%', left: '50%',
+    transform: 'translate(-50%, -50%)',
+    background: 'rgba(6,95,70,0.92)',
+    backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+    border: '1px solid rgba(255,255,255,0.2)',
+    color: 'white', borderRadius: 18,
+    padding: '1.8rem 2.4rem',
+    display: 'flex', alignItems: 'center', gap: '1.2rem',
+    boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+    zIndex: 3000, animation: 'slideUp 0.28s ease',
+    minWidth: 300,
+  },
+  toastIcono: {
+    width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
+    background: 'rgba(255,255,255,0.2)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: '1.6rem', fontWeight: 900,
+  },
+  toastTitulo: { fontSize: '1.1rem', fontWeight: 800, marginBottom: '0.2rem' },
+  toastSub:    { fontSize: '0.85rem', opacity: 0.8 },
   acciones:  { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' },
   btnEdit: {
     background: '#f1f5f9', border: '1.5px solid #e2e8f0',
@@ -400,14 +438,16 @@ const f = {
 const m = {
   backdrop: {
     position: 'fixed', inset: 0,
-    background: 'rgba(2,48,82,0.55)',
+    background: 'rgba(0,0,0,0.06)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: 1000, animation: 'fadeIn 0.18s ease', backdropFilter: 'blur(4px)',
+    zIndex: 1000, animation: 'fadeIn 0.18s ease',
   },
   modal: {
-    background: 'white', borderRadius: 18,
-    width: '100%', maxWidth: 460, margin: '1rem',
-    boxShadow: '0 24px 64px rgba(2,48,82,0.22)',
+    background: 'rgba(255,255,255,0.72)',
+    backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+    border: '1px solid rgba(255,255,255,0.6)',
+    borderRadius: 18, width: '100%', maxWidth: 460, margin: '1rem',
+    boxShadow: '0 8px 40px rgba(2,48,82,0.18)',
     animation: 'slideUp 0.22s ease', overflow: 'hidden',
     maxHeight: '90vh', display: 'flex', flexDirection: 'column',
   },

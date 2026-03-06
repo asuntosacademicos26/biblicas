@@ -87,19 +87,18 @@ function traducirError(code) {
 const s = {
   backdrop: {
     position: 'fixed', inset: 0,
-    background: 'rgba(2,48,82,0.55)',
+    background: 'rgba(0,0,0,0.06)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     zIndex: 1000,
     animation: 'fadeIn 0.18s ease',
-    backdropFilter: 'blur(4px)',
   },
   modal: {
-    background: 'white',
-    borderRadius: 18,
-    width: '100%', maxWidth: 400, margin: '1rem',
-    boxShadow: '0 24px 64px rgba(0,0,0,0.22)',
-    animation: 'slideUp 0.22s ease',
-    overflow: 'hidden',
+    background: 'rgba(255,255,255,0.72)',
+    backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+    border: '1px solid rgba(255,255,255,0.6)',
+    borderRadius: 18, width: '100%', maxWidth: 400, margin: '1rem',
+    boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
+    animation: 'slideUp 0.22s ease', overflow: 'hidden',
   },
   header: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',

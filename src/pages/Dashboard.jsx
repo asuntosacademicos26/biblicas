@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../config/firebase'
-import Notas from '../components/Notas'
 import GestionUsuarios from '../components/GestionUsuarios'
 import ClasesBiblicas from '../components/ClasesBiblicas'
 import DataAlumnos from '../components/DataAlumnos'
 import Facultad from '../components/Facultad'
+import DocentesClases from '../components/DocentesClases'
+import LeccionesClases from '../components/LeccionesClases'
+import MisClases from '../components/MisClases'
 
 const MODULOS_ADMIN = [
   {
@@ -44,18 +46,39 @@ const MODULOS_ADMIN = [
     icon: <IconFacultad />,
     tag: 'Académico',
   },
+  {
+    id: 'docentes',
+    titulo: 'Docentes con Clases Bíblicas',
+    desc: 'Consulta qué clases bíblicas tiene asignadas cada docente del sistema.',
+    gradient: 'linear-gradient(180deg, rgba(15,118,110,0.40) 0%, rgba(15,118,110,0.82) 100%)',
+    imagen: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=700&q=80',
+    icon: <IconDocentes />,
+    tag: 'Docentes',
+  },
+  {
+    id: 'lecciones',
+    titulo: 'Lecciones de Clases Bíblicas',
+    desc: 'Gestiona las lecciones de cada clase bíblica: títulos, fechas y descripciones.',
+    gradient: 'linear-gradient(180deg, rgba(124,58,237,0.40) 0%, rgba(124,58,237,0.82) 100%)',
+    imagen: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=700&q=80',
+    icon: <IconLecciones />,
+    tag: 'Lecciones',
+  },
 ]
 
 export default function Dashboard({ sesion }) {
-  const [vista, setVista] = useState('home')
   const esAdmin = sesion.rol === 'admin'
+  const [vista, setVista] = useState(esAdmin ? 'home' : 'misclases')
 
   function renderVista() {
-    if (!esAdmin || vista === 'notas')    return <Notas uid={sesion.uid} />
-    if (vista === 'usuarios')             return <GestionUsuarios uidAdmin={sesion.uid} />
-    if (vista === 'clases')               return <ClasesBiblicas />
-    if (vista === 'alumnos')              return <DataAlumnos />
-    if (vista === 'facultad')             return <Facultad />
+    if (vista === 'misclases') return <MisClases docenteId={sesion.uid} />
+    if (!esAdmin) return null
+    if (vista === 'usuarios')  return <GestionUsuarios uidAdmin={sesion.uid} />
+    if (vista === 'clases')    return <ClasesBiblicas />
+    if (vista === 'alumnos')   return <DataAlumnos />
+    if (vista === 'facultad')  return <Facultad />
+    if (vista === 'docentes')  return <DocentesClases />
+    if (vista === 'lecciones') return <LeccionesClases />
     return null
   }
 
@@ -65,7 +88,7 @@ export default function Dashboard({ sesion }) {
       {/* ── Header ── */}
       <header style={s.header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          {vista !== 'home' && esAdmin && (
+          {esAdmin && vista !== 'home' && (
             <button style={s.backBtn} onClick={() => setVista('home')} title="Volver">
               ←
             </button>
@@ -80,7 +103,7 @@ export default function Dashboard({ sesion }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
           {!esAdmin && (
-            <TabBtn label="Mis notas" activa={vista === 'notas'} onClick={() => setVista('notas')} />
+            <TabBtn label="Mis clases" activa={vista === 'misclases'} onClick={() => setVista('misclases')} />
           )}
           <button className="btn btn-ghost" onClick={() => signOut(auth)}>
             Cerrar sesión
@@ -110,11 +133,11 @@ export default function Dashboard({ sesion }) {
         {/* VISTA DE MÓDULO */}
         {(!esAdmin || vista !== 'home') && (
           <div style={{ animation: 'fadeIn 0.2s ease' }}>
-            {esAdmin && (
+            {esAdmin && vista !== 'home' && (
               <div style={s.breadcrumb}>
                 <span style={s.breadcrumbLink} onClick={() => setVista('home')}>Inicio</span>
                 <span style={s.breadcrumbSep}>›</span>
-                <span>{MODULOS_ADMIN.find(m => m.id === vista)?.titulo ?? 'Mis notas'}</span>
+                <span>{MODULOS_ADMIN.find(m => m.id === vista)?.titulo ?? vista}</span>
               </div>
             )}
             {renderVista()}
@@ -246,6 +269,33 @@ function IconFacultad() {
       <rect x="22" y="40" width="10" height="24" rx="2" fill="rgba(255,255,255,0.85)"/>
       <rect x="40" y="40" width="10" height="24" rx="2" fill="rgba(255,255,255,0.85)"/>
       <rect x="28" y="32" width="16" height="8" rx="2" fill="rgba(255,255,255,0.5)"/>
+    </svg>
+  )
+}
+
+function IconDocentes() {
+  return (
+    <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
+      <circle cx="24" cy="22" r="11" fill="rgba(255,255,255,0.9)" />
+      <path d="M4 54c0-11 9-20 20-20s20 9 20 20" stroke="rgba(255,255,255,0.9)" strokeWidth="4" strokeLinecap="round" fill="none"/>
+      <rect x="46" y="28" width="20" height="4" rx="2" fill="rgba(255,255,255,0.85)"/>
+      <rect x="46" y="38" width="16" height="4" rx="2" fill="rgba(255,255,255,0.65)"/>
+      <rect x="46" y="48" width="18" height="4" rx="2" fill="rgba(255,255,255,0.5)"/>
+    </svg>
+  )
+}
+
+function IconLecciones() {
+  return (
+    <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
+      <rect x="10" y="8" width="38" height="50" rx="4" fill="rgba(255,255,255,0.9)"/>
+      <rect x="18" y="20" width="22" height="3" rx="1.5" fill="#7c3aed"/>
+      <rect x="18" y="28" width="18" height="3" rx="1.5" fill="#7c3aed" opacity=".7"/>
+      <rect x="18" y="36" width="20" height="3" rx="1.5" fill="#7c3aed" opacity=".5"/>
+      <rect x="18" y="44" width="14" height="3" rx="1.5" fill="#7c3aed" opacity=".35"/>
+      <circle cx="54" cy="52" r="13" fill="rgba(255,255,255,0.25)" stroke="rgba(255,255,255,0.7)" strokeWidth="2"/>
+      <line x1="54" y1="46" x2="54" y2="52" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="54" y1="52" x2="58" y2="56" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
     </svg>
   )
 }

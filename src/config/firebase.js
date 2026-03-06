@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getDatabase } from 'firebase/database'
+import { getStorage } from 'firebase/storage'
 
 const firebaseConfig = {
   apiKey:            'AIzaSyDVWI0jkQCxWodyFqH6rXeoi5tWwL00img',
@@ -15,6 +16,7 @@ const firebaseConfig = {
 export const app             = initializeApp(firebaseConfig)
 export const auth            = getAuth(app)
 export const db              = getDatabase(app)
+export const storage         = getStorage(app)
 export const firebaseConfig2 = firebaseConfig
 
 // Dominio interno para convertir username → email en Firebase Auth
