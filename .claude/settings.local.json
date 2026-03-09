@@ -7,7 +7,9 @@
       "Bash(gh run:*)",
       "Bash(curl:*)",
       "WebFetch(domain:api.github.com)",
-      "Bash(GIT_EDITOR=true git rebase:*)"
+      "Bash(GIT_EDITOR=true git rebase:*)",
+      "Bash(npx vite:*)",
+      "Bash(npm list:*)"
     ]
   }
 }

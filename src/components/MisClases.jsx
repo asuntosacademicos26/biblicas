@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ref, onValue, push, set } from 'firebase/database'
+import { ref, onValue, push, set, remove, get } from 'firebase/database'
 import { db } from '../config/firebase'
 
 const hoy = () => new Date().toISOString().slice(0, 10)
@@ -39,6 +39,8 @@ export default function MisClases({ docenteId }) {
     return (
       <DetalleClase
         clase={claseActiva}
+        docenteId={docenteId}
+        dataAlumnos={dataAlumnos}
         onVolver={() => setClaseActiva(null)}
       />
     )
@@ -101,9 +103,10 @@ export default function MisClases({ docenteId }) {
 
 /* ── Sección lecciones ── */
 function LeccionesSection({ docenteId }) {
-  const [lecciones,      setLecciones]      = useState([])
+  const [lecciones,       setLecciones]       = useState([])
   const [leccionActualId, setLeccionActualId] = useState(null)
-  const [guardando,      setGuardando]      = useState(false)
+  const [guardando,       setGuardando]       = useState(false)
+  const [pendiente,       setPendiente]       = useState(null) // leccion a confirmar
 
   useEffect(() => {
     return onValue(ref(db, 'leccionesBiblicas'), snap => {
@@ -122,11 +125,17 @@ function LeccionesSection({ docenteId }) {
     })
   }, [docenteId])
 
-  async function seleccionar(id) {
-    if (guardando) return
+  function intentarSeleccionar(leccion) {
+    if (guardando || leccion.id === leccionActualId) return
+    setPendiente(leccion)
+  }
+
+  async function confirmarCambio() {
+    if (!pendiente || guardando) return
     setGuardando(true)
-    await set(ref(db, `usuarios/${docenteId}/leccionActualId`), id)
+    await set(ref(db, `usuarios/${docenteId}/leccionActualId`), pendiente.id)
     setGuardando(false)
+    setPendiente(null)
   }
 
   if (lecciones.length === 0) return null
@@ -134,53 +143,153 @@ function LeccionesSection({ docenteId }) {
   const leccionActual = lecciones.find(l => l.id === leccionActualId)
 
   return (
-    <div className="card" style={{ marginTop: '1.2rem' }}>
-      <div style={s.cardHeader}>
-        <div>
-          <h3 style={{ margin: 0, borderBottom: 'none', padding: 0 }}>
-            📘 Lecciones Bíblicas
-            <span style={s.badge}>{lecciones.length}</span>
-          </h3>
-          <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.2rem' }}>
-            Selecciona la lección en la que estás
-          </p>
-        </div>
-        {leccionActual && (
-          <div style={s.lecActualChip}>
-            En lección {leccionActual.numero}: <strong>{leccionActual.titulo}</strong>
+    <>
+      <div className="card" style={{ marginTop: '1.2rem' }}>
+        <div style={s.cardHeader}>
+          <div>
+            <h3 style={{ margin: 0, borderBottom: 'none', padding: 0 }}>
+              📘 Lecciones Bíblicas
+              <span style={s.badge}>{lecciones.length}</span>
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+              Selecciona la lección en la que estás
+            </p>
           </div>
-        )}
-      </div>
+          {leccionActual && (
+            <div style={s.lecActualChip}>
+              En lección {leccionActual.numero}: <strong>{leccionActual.titulo}</strong>
+            </div>
+          )}
+        </div>
 
-      <div style={s.leccionesLista}>
-        {lecciones.map(l => {
-          const activa = l.id === leccionActualId
-          return (
-            <div
-              key={l.id}
-              style={{ ...s.leccionRow, ...(activa ? s.leccionRowActiva : {}) }}
-              onClick={() => seleccionar(l.id)}
-            >
-              <div style={{ ...s.leccionNumCircle, background: activa ? 'linear-gradient(135deg,#023052,#04508a)' : '#e2e8f0', color: activa ? 'white' : '#64748b' }}>
-                {l.numero}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ ...s.leccionTitulo, fontWeight: activa ? 800 : 600, color: activa ? '#023052' : '#334155' }}>
-                  {l.titulo}
+        <div style={s.leccionesLista}>
+          {lecciones.map(l => {
+            const activa = l.id === leccionActualId
+            return (
+              <div
+                key={l.id}
+                style={{ ...s.leccionRow, ...(activa ? s.leccionRowActiva : {}) }}
+                onClick={() => intentarSeleccionar(l)}
+              >
+                <div style={{ ...s.leccionNumCircle, background: activa ? 'linear-gradient(135deg,#023052,#04508a)' : '#e2e8f0', color: activa ? 'white' : '#64748b' }}>
+                  {l.numero}
                 </div>
-                {l.descripcion && (
-                  <div style={s.leccionDesc}>{l.descripcion}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ ...s.leccionTitulo, fontWeight: activa ? 800 : 600, color: activa ? '#023052' : '#334155' }}>
+                    {l.titulo}
+                  </div>
+                  {l.descripcion && (
+                    <div style={s.leccionDesc}>{l.descripcion}</div>
+                  )}
+                </div>
+                {activa && (
+                  <div style={s.leccionActivaBadge}>✓ Actual</div>
                 )}
               </div>
-              {activa && (
-                <div style={s.leccionActivaBadge}>✓ Actual</div>
-              )}
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
+      </div>
+
+      {pendiente && (
+        <ModalConfirmarLeccion
+          actual={leccionActual}
+          nueva={pendiente}
+          guardando={guardando}
+          onConfirmar={confirmarCambio}
+          onCancelar={() => setPendiente(null)}
+        />
+      )}
+    </>
+  )
+}
+
+/* ── Modal confirmación cambio de lección ── */
+function ModalConfirmarLeccion({ actual, nueva, guardando, onConfirmar, onCancelar }) {
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') onCancelar() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onCancelar])
+
+  return (
+    <div style={mc.backdrop} onClick={e => { if (e.target === e.currentTarget) onCancelar() }}>
+      <div className="modal-inner" style={mc.modal}>
+        <div style={mc.iconWrap}>
+          <span style={mc.icon}>📖</span>
+        </div>
+        <h2 style={mc.title}>¿Cambiar lección bíblica?</h2>
+        <p style={mc.desc}>
+          Estás a punto de cambiar tu lección activa a:
+        </p>
+        <div style={mc.nuevaCard}>
+          <div style={mc.nuevaNum}>{nueva.numero}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={mc.nuevaTitulo}>{nueva.titulo}</div>
+            {nueva.descripcion && <div style={mc.nuevaDesc}>{nueva.descripcion}</div>}
+          </div>
+        </div>
+        {actual && (
+          <p style={mc.actualMsg}>
+            Lección actual: <strong>{actual.titulo}</strong>
+          </p>
+        )}
+        <div style={mc.acciones}>
+          <button style={mc.btnCancelar} onClick={onCancelar} disabled={guardando}>
+            Cancelar
+          </button>
+          <button className="btn btn-primary" style={mc.btnConfirmar} onClick={onConfirmar} disabled={guardando}>
+            {guardando ? 'Guardando…' : 'Sí, cambiar lección'}
+          </button>
+        </div>
       </div>
     </div>
   )
+}
+
+const mc = {
+  backdrop: {
+    position: 'fixed', inset: 0, background: 'rgba(1,30,53,0.55)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 1000, padding: '1rem', backdropFilter: 'blur(3px)',
+    animation: 'fadeIn 0.15s ease',
+  },
+  modal: {
+    background: 'white', borderRadius: 20,
+    width: '100%', maxWidth: 420,
+    boxShadow: '0 24px 64px rgba(2,48,82,0.22)',
+    padding: '2rem 1.75rem 1.75rem',
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    textAlign: 'center',
+    animation: 'slideUp 0.2s ease',
+  },
+  iconWrap: { marginBottom: '0.75rem' },
+  icon:     { fontSize: '2.5rem' },
+  title:    { fontSize: '1.15rem', fontWeight: 800, color: '#023052', margin: '0 0 0.5rem' },
+  desc:     { fontSize: '0.88rem', color: '#64748b', margin: '0 0 1rem' },
+  nuevaCard: {
+    display: 'flex', alignItems: 'center', gap: '0.85rem',
+    background: '#eff6ff', border: '1.5px solid #93c5fd',
+    borderRadius: 12, padding: '0.85rem 1rem',
+    width: '100%', textAlign: 'left', marginBottom: '0.75rem',
+  },
+  nuevaNum: {
+    width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+    background: 'linear-gradient(135deg,#023052,#04508a)',
+    color: 'white', fontWeight: 800, fontSize: '0.9rem',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  nuevaTitulo: { fontWeight: 700, color: '#023052', fontSize: '0.95rem' },
+  nuevaDesc:   { fontSize: '0.78rem', color: '#64748b', marginTop: '0.2rem' },
+  actualMsg:   { fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 1.25rem' },
+  acciones:    { display: 'flex', gap: '0.75rem', width: '100%' },
+  btnCancelar: {
+    flex: 1, padding: '0.6rem', borderRadius: 10,
+    border: '1.5px solid #e2e8f0', background: 'white',
+    color: '#64748b', fontWeight: 600, fontSize: '0.92rem',
+    cursor: 'pointer', fontFamily: 'inherit',
+  },
+  btnConfirmar: { flex: 1, padding: '0.6rem', borderRadius: 10, fontSize: '0.92rem' },
 }
 
 /* ── Sección cumpleaños ── */
@@ -296,11 +405,12 @@ function calcularCumple({ mes, dia }) {
 }
 
 /* ── Detalle de clase con tabs ── */
-function DetalleClase({ clase, onVolver }) {
-  const [tab,       setTab]       = useState('alumnos') // 'alumnos' | 'asistencia' | 'historial'
-  const [alumnos,   setAlumnos]   = useState([])
-  const [asistencias, setAsistencias] = useState([])
-  const [busqueda,  setBusqueda]  = useState('')
+function DetalleClase({ clase, docenteId, dataAlumnos, onVolver }) {
+  const [tab,          setTab]          = useState('alumnos') // 'alumnos' | 'asistencia' | 'historial'
+  const [alumnos,      setAlumnos]      = useState([])
+  const [asistencias,  setAsistencias]  = useState([])
+  const [busqueda,     setBusqueda]     = useState('')
+  const [modalEditar,  setModalEditar]  = useState(false)
 
   useEffect(() => {
     return onValue(ref(db, `clases/${clase.id}/alumnos`), snap => {
@@ -319,6 +429,15 @@ function DetalleClase({ clase, onVolver }) {
       )
     })
   }, [clase.id])
+
+  function getEscuela(a) {
+    if (a.escuelaProfesional) return a.escuelaProfesional
+    const match = dataAlumnos.find(d =>
+      (a.dni && d.dni === a.dni) ||
+      (a.codigoEstudiante && d.codigoEstudiante === a.codigoEstudiante)
+    )
+    return match?.escuelaProfesional || '—'
+  }
 
   const q = busqueda.toLowerCase()
   const alumnosFiltrados = alumnos.filter(a =>
@@ -346,9 +465,18 @@ function DetalleClase({ clase, onVolver }) {
               {[clase.facultad, clase.escuela && `› ${clase.escuela}`, clase.ciclo && `Ciclo ${clase.ciclo}`, clase.grupo && `Grupo ${clase.grupo}`, clase.lugar && `📍 ${clase.lugar}`].filter(Boolean).join(' · ')}
             </div>
           </div>
-          <div style={s.alumnosBadgeWrap}>
-            <span style={s.alumnosBadgeNum}>{alumnos.length}</span>
-            <span style={s.alumnosBadgeLabel}>alumno{alumnos.length !== 1 ? 's' : ''}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem', flexShrink: 0 }}>
+            <div style={s.alumnosBadgeWrap}>
+              <span style={s.alumnosBadgeNum}>{alumnos.length}</span>
+              <span style={s.alumnosBadgeLabel}>alumno{alumnos.length !== 1 ? 's' : ''}</span>
+            </div>
+            <button
+              className="btn btn-primary"
+              style={{ padding: '0.38rem 0.9rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+              onClick={() => setModalEditar(true)}
+            >
+              <IconEditar /> Editar clase
+            </button>
           </div>
         </div>
 
@@ -385,7 +513,7 @@ function DetalleClase({ clase, onVolver }) {
                       <th style={{ width: 36 }}>#</th>
                       <th>Nombre completo</th>
                       <th>DNI</th>
-                      <th>Cód. estudiante</th>
+                      <th>Escuela profesional</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -394,7 +522,7 @@ function DetalleClase({ clase, onVolver }) {
                         <td style={{ color: '#94a3b8' }}>{i + 1}</td>
                         <td><strong style={{ color: '#023052' }}>{a.nombreCompleto}</strong></td>
                         <td style={{ color: '#475569' }}>{a.dni || '—'}</td>
-                        <td style={{ color: '#475569' }}>{a.codigoEstudiante || '—'}</td>
+                        <td style={{ color: '#475569' }}>{getEscuela(a)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -406,7 +534,7 @@ function DetalleClase({ clase, onVolver }) {
 
         {/* Tab: Llamar asistencia */}
         {tab === 'asistencia' && (
-          <LlamarAsistencia claseId={clase.id} alumnos={alumnos} asistencias={asistencias} />
+          <LlamarAsistencia claseId={clase.id} docenteId={docenteId} alumnos={alumnos} asistencias={asistencias} />
         )}
 
         {/* Tab: Historial */}
@@ -414,16 +542,40 @@ function DetalleClase({ clase, onVolver }) {
           <HistorialAsistencia asistencias={asistencias} />
         )}
       </div>
+
+      {modalEditar && (
+        <ModalEditarAlumnos
+          clase={clase}
+          alumnos={alumnos}
+          onClose={() => setModalEditar(false)}
+        />
+      )}
     </div>
   )
 }
 
 /* ── Llamar asistencia ── */
-function LlamarAsistencia({ claseId, alumnos, asistencias }) {
-  const [fecha,      setFecha]      = useState(hoy())
-  const [registros,  setRegistros]  = useState({})
-  const [guardando,  setGuardando]  = useState(false)
-  const [guardado,   setGuardado]   = useState(false)
+function LlamarAsistencia({ claseId, docenteId, alumnos, asistencias }) {
+  const [fecha,         setFecha]         = useState(hoy())
+  const [registros,     setRegistros]     = useState({})
+  const [guardando,     setGuardando]     = useState(false)
+  const [guardado,      setGuardado]      = useState(false)
+  const [leccionActual, setLeccionActual] = useState(null)  // objeto leccion del docente
+  const [leccionNumero, setLeccionNumero] = useState('')
+
+  // Cargar la leccion actualmente seleccionada por el docente
+  useEffect(() => {
+    let unsubLeccion = () => {}
+    const unsubId = onValue(ref(db, `usuarios/${docenteId}/leccionActualId`), snapId => {
+      unsubLeccion()
+      if (!snapId.exists()) { setLeccionActual(null); return }
+      const lecId = snapId.val()
+      unsubLeccion = onValue(ref(db, `leccionesBiblicas/${lecId}`), snapL => {
+        setLeccionActual(snapL.exists() ? { id: lecId, ...snapL.val() } : null)
+      })
+    })
+    return () => { unsubId(); unsubLeccion() }
+  }, [docenteId])
 
   // Sesión existente para la fecha seleccionada
   const sesionExistente = asistencias.find(a => a.fecha === fecha) ?? null
@@ -432,7 +584,7 @@ function LlamarAsistencia({ claseId, alumnos, asistencias }) {
     : asistencias.length + 1
   const esActualizacion = !!sesionExistente
 
-  // Inicializar presentes — si ya hay sesión para esa fecha, precarga sus registros
+  // Inicializar presentes y lección al cambiar fecha
   useEffect(() => {
     const init = {}
     if (sesionExistente?.registros) {
@@ -445,7 +597,10 @@ function LlamarAsistencia({ claseId, alumnos, asistencias }) {
     }
     setRegistros(init)
     setGuardado(false)
+    setLeccionNumero(sesionExistente?.leccionNumero ?? '')
   }, [alumnos, fecha])
+
+  const totalLecciones = leccionActual?.totalLecciones || 16
 
   const presentes = alumnos.filter(a => registros[a.id]).length
   const ausentes  = alumnos.length - presentes
@@ -463,13 +618,16 @@ function LlamarAsistencia({ claseId, alumnos, asistencias }) {
     if (alumnos.length === 0) return
     setGuardando(true)
     const datos = {
-      sesion:        Number(proximaSesion) || 1,
-      fecha:         fecha || null,
-      creadoEn:      sesionExistente?.creadoEn ?? Date.now(),
-      actualizadoEn: Date.now(),
-      total:         alumnos.length,
+      sesion:         Number(proximaSesion) || 1,
+      fecha:          fecha || null,
+      creadoEn:       sesionExistente?.creadoEn ?? Date.now(),
+      actualizadoEn:  Date.now(),
+      total:          alumnos.length,
       presentes,
-      registros:     {},
+      leccionId:      leccionActual?.id || null,
+      leccionTitulo:  leccionActual?.titulo || null,
+      leccionNumero:  leccionNumero ? Number(leccionNumero) : null,
+      registros:      {},
     }
     alumnos.forEach(a => {
       datos.registros[a.id] = { nombreCompleto: a.nombreCompleto, presente: !!registros[a.id] }
@@ -502,12 +660,36 @@ function LlamarAsistencia({ claseId, alumnos, asistencias }) {
           <span style={s.pillAusente}><IconX /> {ausentes} ausente{ausentes !== 1 ? 's' : ''}</span>
         </div>
       </div>
-      {/* Selector de fecha */}
+
+      {/* Selectores: fecha + lección */}
       <div style={s.asistenciaHeader}>
         <div style={s.fechaGroup}>
           <label style={s.fechaLabel}>Fecha de la sesión</label>
           <input type="date" value={fecha} onChange={e => { setFecha(e.target.value); setGuardado(false) }} style={s.fechaInput} />
         </div>
+
+        {leccionActual ? (
+          <div style={s.fechaGroup}>
+            <label style={s.fechaLabel}>Lección N°</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <select
+                value={leccionNumero}
+                onChange={e => { setLeccionNumero(e.target.value); setGuardado(false) }}
+                style={{ ...s.fechaInput, minWidth: 130 }}
+              >
+                <option value="">— Seleccionar —</option>
+                {Array.from({ length: totalLecciones }, (_, i) => i + 1).map(n => (
+                  <option key={n} value={n}>Lección {n}</option>
+                ))}
+              </select>
+              <span style={s.leccionActualChip}>📖 {leccionActual.titulo}</span>
+            </div>
+          </div>
+        ) : (
+          <div style={{ ...s.fechaGroup, justifyContent: 'center' }}>
+            <span style={s.sinLeccionMsg}>Sin libro seleccionado en pantalla principal</span>
+          </div>
+        )}
       </div>
 
       {guardado && (
@@ -595,6 +777,11 @@ function HistorialAsistencia({ asistencias }) {
                 <div>
                   <div style={s.historialSesionLabel}>Sesión {a.sesion ?? '—'}</div>
                   {a.fecha && <div style={s.historialFechaSmall}><IconCalendario /> {formatFecha(a.fecha)}</div>}
+                  {a.leccionTitulo && (
+                    <div style={s.historialLeccionChip}>
+                      📖 {a.leccionTitulo}{a.leccionNumero ? ` · Lección ${a.leccionNumero}` : ''}
+                    </div>
+                  )}
                 </div>
               </div>
               <div style={s.historialStats}>
@@ -626,7 +813,324 @@ function HistorialAsistencia({ asistencias }) {
   )
 }
 
+/* ── Modal editar alumnos de la clase ── */
+function ModalEditarAlumnos({ clase, alumnos, onClose }) {
+  const [busqLista, setBusqLista] = useState('')
+  const [busqAgregar, setBusqAgregar] = useState('')
+  const [encontrado,  setEncontrado]  = useState(null)
+  const [noEncon,     setNoEncon]     = useState(false)
+  const [buscando,    setBuscando]    = useState(false)
+  const [estado,      setEstado]      = useState(null)
+  const [cargando,    setCargando]    = useState(false)
+
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
+
+  // Filtrar lista actual
+  const q = busqLista.toLowerCase()
+  const alumnosFiltrados = alumnos.filter(a =>
+    (a.nombreCompleto || '').toLowerCase().includes(q) ||
+    (a.dni || '').includes(q) ||
+    (a.codigoEstudiante || '').toLowerCase().includes(q)
+  )
+
+  async function eliminarAlumno(alumnoId, nombre) {
+    if (!confirm(`¿Quitar a "${nombre}" de la clase?`)) return
+    await remove(ref(db, `clases/${clase.id}/alumnos/${alumnoId}`))
+  }
+
+  async function buscarAlumno(e) {
+    e.preventDefault()
+    const q = busqAgregar.trim()
+    if (!q) return
+    setBuscando(true)
+    setEncontrado(null)
+    setNoEncon(false)
+    setEstado(null)
+    try {
+      const snapData = await get(ref(db, 'dataAlumnos'))
+      if (!snapData.exists()) { setNoEncon(true); return }
+      const found = Object.entries(snapData.val()).find(([, d]) =>
+        (d.dni || '') === q || (d.codigoEstudiante || '') === q
+      )
+      if (!found) { setNoEncon(true); return }
+      const alumnoData = { id: found[0], ...found[1] }
+      const yaEsta = alumnos.some(a =>
+        (alumnoData.dni && a.dni === alumnoData.dni) ||
+        (alumnoData.codigoEstudiante && a.codigoEstudiante === alumnoData.codigoEstudiante)
+      )
+      if (yaEsta) {
+        setEstado({ tipo: 'error', msg: `${alumnoData.nombre} ${alumnoData.apellido} ya está en esta clase.` })
+        return
+      }
+      setEncontrado(alumnoData)
+    } finally {
+      setBuscando(false)
+    }
+  }
+
+  async function agregarAlumno() {
+    if (!encontrado) return
+    setCargando(true)
+    setEstado(null)
+    try {
+      await push(ref(db, `clases/${clase.id}/alumnos`), {
+        nombreCompleto:    `${encontrado.nombre || ''} ${encontrado.apellido || ''}`.trim(),
+        dni:               encontrado.dni || '',
+        codigoEstudiante:  encontrado.codigoEstudiante || '',
+        escuelaProfesional: encontrado.escuelaProfesional || '',
+        correo:            encontrado.correo || '',
+        celular:           encontrado.celular || '',
+        creadoEn:          Date.now(),
+      })
+      setEstado({ tipo: 'success', msg: `"${encontrado.nombre} ${encontrado.apellido}" agregado correctamente.` })
+      setBusqAgregar('')
+      setEncontrado(null)
+    } catch {
+      setEstado({ tipo: 'error', msg: 'Error al agregar el alumno.' })
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  return (
+    <div style={m.backdrop} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="modal-inner" style={m.modal}>
+
+        {/* Header */}
+        <div style={m.header}>
+          <div>
+            <h2 style={m.title}>Editar clase</h2>
+            <p style={m.subtitle}>{clase.nombre}</p>
+          </div>
+          <button style={m.closeBtn} onClick={onClose}>✕</button>
+        </div>
+
+        <div style={m.body}>
+
+          {/* ── Sección: Lista de alumnos ── */}
+          <div style={m.seccion}>
+            <div style={m.secHeader}>
+              <div style={m.secTitle}>
+                <IconPersonas /> Alumnos inscritos
+                <span style={m.countChip}>{alumnos.length}</span>
+              </div>
+              {alumnos.length > 0 && (
+                <div style={m.miniSearch}>
+                  <span style={m.miniSearchIcon}><IconSearch /></span>
+                  <input
+                    style={m.miniSearchInput}
+                    placeholder="Buscar…"
+                    value={busqLista}
+                    onChange={e => setBusqLista(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+
+            {alumnos.length === 0 && (
+              <p style={m.emptyMsg}>No hay alumnos inscritos aún.</p>
+            )}
+            {alumnos.length > 0 && alumnosFiltrados.length === 0 && (
+              <p style={m.emptyMsg}>Sin resultados para "{busqLista}".</p>
+            )}
+
+            {alumnosFiltrados.length > 0 && (
+              <div style={m.alumnosList}>
+                {alumnosFiltrados.map((a, i) => (
+                  <div key={a.id} style={m.alumnoRow}>
+                    <div style={m.alumnoNum}>{i + 1}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={m.alumnoNombre}>{a.nombreCompleto}</div>
+                      <div style={m.alumnoMeta}>
+                        {[a.dni && `DNI: ${a.dni}`, a.codigoEstudiante && `Cód: ${a.codigoEstudiante}`].filter(Boolean).join(' · ') || '—'}
+                      </div>
+                    </div>
+                    <button
+                      style={m.btnQuitar}
+                      onClick={() => eliminarAlumno(a.id, a.nombreCompleto)}
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Sección: Agregar alumno ── */}
+          <div style={{ ...m.seccion, marginTop: '1.2rem', background: '#f8fafc', borderRadius: 12, padding: '1rem' }}>
+            <div style={{ ...m.secTitle, marginBottom: '0.8rem' }}>
+              <IconPlus /> Agregar alumno
+            </div>
+
+            {estado && <div className={`alert alert-${estado.tipo}`} style={{ marginBottom: '0.75rem' }}>{estado.msg}</div>}
+
+            <form onSubmit={buscarAlumno}>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  placeholder="DNI o código de estudiante…"
+                  value={busqAgregar}
+                  onChange={e => { setBusqAgregar(e.target.value); setEncontrado(null); setNoEncon(false); setEstado(null) }}
+                  style={{ flex: 1, fontSize: '0.88rem' }}
+                />
+                <button type="submit" className="btn btn-primary" style={{ flexShrink: 0, fontSize: '0.86rem' }} disabled={buscando || !busqAgregar.trim()}>
+                  {buscando ? '…' : 'Buscar'}
+                </button>
+              </div>
+            </form>
+
+            {noEncon && (
+              <div style={m.noEncon}>No se encontró ningún alumno con ese DNI o código.</div>
+            )}
+
+            {encontrado && (
+              <div style={m.encontradoCard}>
+                <div style={m.encontradoInfo}>
+                  <div style={m.alumnoAvatar}>{(encontrado.nombre || '').charAt(0).toUpperCase()}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={m.alumnoNombre}>{encontrado.nombre} {encontrado.apellido}</div>
+                    <div style={m.alumnoMeta}>
+                      {[encontrado.dni && `DNI: ${encontrado.dni}`, encontrado.codigoEstudiante && `Cód: ${encontrado.codigoEstudiante}`].filter(Boolean).join(' · ')}
+                    </div>
+                    {(encontrado.facultad || encontrado.escuelaProfesional) && (
+                      <div style={{ ...m.alumnoMeta, marginTop: '0.15rem' }}>
+                        {[encontrado.facultad, encontrado.escuelaProfesional].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button
+                  className="btn btn-success"
+                  style={{ fontSize: '0.86rem', padding: '0.45rem 1.1rem', marginTop: '0.75rem', width: '100%' }}
+                  onClick={agregarAlumno}
+                  disabled={cargando}
+                >
+                  {cargando ? 'Agregando…' : '+ Agregar a la clase'}
+                </button>
+              </div>
+            )}
+          </div>
+
+        </div>
+
+        <div style={m.modalFooter}>
+          <button style={m.btnCerrar} onClick={onClose}>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const m = {
+  backdrop: {
+    position: 'fixed', inset: 0, background: 'rgba(1,30,53,0.55)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 1000, padding: '1rem', backdropFilter: 'blur(2px)',
+    animation: 'fadeIn 0.15s ease',
+  },
+  modal: {
+    background: 'white', borderRadius: 18,
+    width: '100%', maxWidth: 640,
+    boxShadow: '0 24px 64px rgba(2,48,82,0.22)',
+    display: 'flex', flexDirection: 'column',
+    animation: 'slideUp 0.2s ease',
+    maxHeight: '90vh', overflow: 'hidden',
+  },
+  header: {
+    display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+    padding: '1.4rem 1.5rem 0', flexShrink: 0,
+  },
+  title:    { fontSize: '1.15rem', fontWeight: 800, color: '#023052', margin: 0 },
+  subtitle: { fontSize: '0.83rem', color: '#94a3b8', marginTop: '0.2rem' },
+  closeBtn: {
+    background: '#f1f5f9', border: 'none', borderRadius: 8,
+    width: 32, height: 32, cursor: 'pointer', fontFamily: 'inherit',
+    fontSize: '0.9rem', color: '#64748b',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  body: { padding: '1.2rem 1.5rem', overflowY: 'auto', flex: 1 },
+  modalFooter: {
+    padding: '0.9rem 1.5rem', borderTop: '1px solid #e2e8f0',
+    display: 'flex', justifyContent: 'flex-end', flexShrink: 0,
+  },
+  btnCerrar: {
+    padding: '0.5rem 1.4rem', borderRadius: 8,
+    border: '1.5px solid #e2e8f0', background: 'white',
+    color: '#64748b', fontWeight: 600, fontSize: '0.9rem',
+    cursor: 'pointer', fontFamily: 'inherit',
+  },
+
+  seccion: {},
+  secHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', gap: '0.75rem', flexWrap: 'wrap' },
+  secTitle: { display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 700, color: '#023052', fontSize: '0.93rem' },
+  countChip: {
+    background: '#ccdce8', color: '#023052', borderRadius: 99,
+    fontSize: '0.72rem', fontWeight: 700, padding: '0.1rem 0.55rem',
+  },
+
+  miniSearch: { position: 'relative', minWidth: 160 },
+  miniSearchIcon: { position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' },
+  miniSearchInput: {
+    paddingLeft: '2rem', padding: '0.4rem 0.75rem 0.4rem 2rem',
+    border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.83rem',
+    width: '100%', background: 'white',
+  },
+
+  emptyMsg: { color: '#94a3b8', fontSize: '0.85rem', textAlign: 'center', padding: '1rem 0', fontStyle: 'italic' },
+
+  alumnosList: {
+    display: 'flex', flexDirection: 'column', gap: '0.4rem',
+    maxHeight: 260, overflowY: 'auto',
+    border: '1px solid #e2e8f0', borderRadius: 10, padding: '0.4rem',
+  },
+  alumnoRow: {
+    display: 'flex', alignItems: 'center', gap: '0.75rem',
+    padding: '0.55rem 0.75rem', borderRadius: 8,
+    background: 'white', border: '1px solid #f1f5f9',
+  },
+  alumnoNum: {
+    width: 24, height: 24, borderRadius: '50%',
+    background: '#e2e8f0', color: '#64748b',
+    fontSize: '0.72rem', fontWeight: 700,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  alumnoNombre: { fontWeight: 600, color: '#023052', fontSize: '0.9rem' },
+  alumnoMeta:   { fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.1rem' },
+  btnQuitar: {
+    background: '#fee2e2', color: '#991b1b', border: 'none',
+    borderRadius: 6, padding: '0.28rem 0.7rem',
+    fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer',
+    fontFamily: 'inherit', flexShrink: 0, transition: 'background 0.15s',
+  },
+
+  noEncon: {
+    background: '#fff7ed', border: '1.5px solid #fed7aa', borderRadius: 10,
+    color: '#9a3412', fontSize: '0.83rem', padding: '0.6rem 0.9rem', marginTop: '0.6rem',
+  },
+  encontradoCard: {
+    border: '1.5px solid #bbf7d0', borderRadius: 10,
+    padding: '0.85rem', marginTop: '0.75rem', background: '#f0fdf4',
+  },
+  encontradoInfo: { display: 'flex', alignItems: 'center', gap: '0.75rem' },
+  alumnoAvatar: {
+    width: 36, height: 36, borderRadius: '50%',
+    background: 'linear-gradient(135deg, #023052, #04508a)',
+    color: 'white', fontWeight: 800, fontSize: '0.95rem',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+}
+
 /* ── Iconos ── */
+function IconEditar() {
+  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+}
+function IconPlus() {
+  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+}
 function IconSearch() {
   return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
 }
@@ -758,6 +1262,8 @@ const s = {
   fechaGroup:  { display: 'flex', flexDirection: 'column', gap: '0.3rem' },
   fechaLabel:  { fontSize: '0.78rem', fontWeight: 700, color: '#023052' },
   fechaInput:  { padding: '0.45rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.9rem', fontFamily: 'inherit' },
+  leccionActualChip: { background: '#e0f2fe', color: '#0369a1', borderRadius: 99, fontSize: '0.78rem', fontWeight: 700, padding: '0.25rem 0.75rem', whiteSpace: 'nowrap' },
+  sinLeccionMsg: { fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic', paddingTop: '0.2rem' },
   statsPills:  { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' },
   pillPresente:{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: '#dcfce7', color: '#166534', borderRadius: 99, fontSize: '0.8rem', fontWeight: 700, padding: '0.25rem 0.75rem' },
   pillAusente: { display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: '#fee2e2', color: '#991b1b', borderRadius: 99, fontSize: '0.8rem', fontWeight: 700, padding: '0.25rem 0.75rem' },
@@ -780,6 +1286,7 @@ const s = {
   historialSesionNum:   { width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #023052, #04508a)', color: 'white', fontWeight: 800, fontSize: '0.88rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   historialSesionLabel: { fontWeight: 700, color: '#023052', fontSize: '0.92rem' },
   historialFechaSmall:  { display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.1rem' },
+  historialLeccionChip: { fontSize: '0.74rem', color: '#0369a1', background: '#e0f2fe', borderRadius: 99, padding: '0.1rem 0.6rem', marginTop: '0.25rem', display: 'inline-block', fontWeight: 600 },
   historialStats: { display: 'flex', alignItems: 'center', gap: '0.6rem' },
   barraWrap: { width: 80, height: 6, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' },
   barraFill: { height: '100%', background: '#16a34a', borderRadius: 99, transition: 'width 0.3s' },

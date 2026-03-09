@@ -83,6 +83,11 @@ export default function LeccionesClases() {
               <div style={s.leccionNum}>{l.numero ?? inicio + i + 1}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={s.leccionTitulo}>{l.titulo}</div>
+                {l.totalLecciones && (
+                  <div style={s.leccionChipWrap}>
+                    <span style={s.leccionChip}>📚 {l.totalLecciones} lección{l.totalLecciones !== 1 ? 'es' : ''}</span>
+                  </div>
+                )}
                 {l.descripcion && (
                   <div style={s.leccionDesc}>{l.descripcion}</div>
                 )}
@@ -137,11 +142,12 @@ export default function LeccionesClases() {
 
 /* ── Modal crear / editar ── */
 function ModalLeccion({ leccion, siguiente, onClose }) {
-  const [numero,      setNumero]      = useState(leccion?.numero ?? siguiente)
-  const [titulo,      setTitulo]      = useState(leccion?.titulo ?? '')
-  const [descripcion, setDescripcion] = useState(leccion?.descripcion ?? '')
-  const [estado,      setEstado]      = useState(null)
-  const [cargando,    setCargando]    = useState(false)
+  const [numero,         setNumero]         = useState(leccion?.numero ?? siguiente)
+  const [titulo,         setTitulo]         = useState(leccion?.titulo ?? '')
+  const [descripcion,    setDescripcion]    = useState(leccion?.descripcion ?? '')
+  const [totalLecciones, setTotalLecciones] = useState(leccion?.totalLecciones ?? '')
+  const [estado,         setEstado]         = useState(null)
+  const [cargando,       setCargando]       = useState(false)
 
   const esEdicion = !!leccion
 
@@ -158,9 +164,10 @@ function ModalLeccion({ leccion, siguiente, onClose }) {
     setEstado(null)
     try {
       const datos = {
-        numero:      Number(numero) || siguiente,
-        titulo:      titulo.trim(),
-        descripcion: descripcion.trim() || null,
+        numero:         Number(numero) || siguiente,
+        titulo:         titulo.trim(),
+        descripcion:    descripcion.trim() || null,
+        totalLecciones: totalLecciones ? Number(totalLecciones) : null,
       }
       if (esEdicion) {
         await update(ref(db, `leccionesBiblicas/${leccion.id}`), datos)
@@ -205,6 +212,15 @@ function ModalLeccion({ leccion, siguiente, onClose }) {
                 onChange={e => setTitulo(e.target.value)}
                 autoFocus
               />
+            </div>
+            <div className="form-group">
+              <label>Cantidad de lecciones <span style={{ color: '#94a3b8', fontWeight: 400, fontSize: '0.78rem' }}>(opcional)</span></label>
+              <select value={totalLecciones} onChange={e => setTotalLecciones(e.target.value)} style={{ maxWidth: 200 }}>
+                <option value="">— Sin especificar —</option>
+                {Array.from({ length: 16 }, (_, i) => i + 1).map(n => (
+                  <option key={n} value={n}>{n} lección{n !== 1 ? 'es' : ''}</option>
+                ))}
+              </select>
             </div>
             <div className="form-group">
               <label>Descripción <span style={{ color: '#94a3b8', fontWeight: 400, fontSize: '0.78rem' }}>(opcional)</span></label>
@@ -269,8 +285,10 @@ const s = {
     color: 'white', fontWeight: 800, fontSize: '0.88rem',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  leccionTitulo: { fontWeight: 700, color: '#023052', fontSize: '0.95rem' },
-  leccionDesc:   { fontSize: '0.82rem', color: '#64748b', marginTop: '0.35rem', lineHeight: 1.55 },
+  leccionTitulo:   { fontWeight: 700, color: '#023052', fontSize: '0.95rem' },
+  leccionChipWrap: { marginTop: '0.3rem' },
+  leccionChip:     { display: 'inline-flex', alignItems: 'center', gap: '0.25rem', background: '#e0f2fe', color: '#0369a1', borderRadius: 99, fontSize: '0.74rem', fontWeight: 700, padding: '0.15rem 0.65rem' },
+  leccionDesc:     { fontSize: '0.82rem', color: '#64748b', marginTop: '0.35rem', lineHeight: 1.55 },
   acciones:      { display: 'flex', gap: '0.4rem', flexShrink: 0 },
   btnEditar: {
     width: 30, height: 30, borderRadius: 7, border: '1.5px solid #e2e8f0',

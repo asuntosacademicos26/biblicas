@@ -9,6 +9,7 @@ import Facultad from '../components/Facultad'
 import DocentesClases from '../components/DocentesClases'
 import LeccionesClases from '../components/LeccionesClases'
 import MisClases from '../components/MisClases'
+import Estadisticas from '../components/Estadisticas'
 
 const MODULOS_ADMIN = [
   {
@@ -65,6 +66,24 @@ const MODULOS_ADMIN = [
     icon: <IconLecciones />,
     tag: 'Lecciones',
   },
+  {
+    id: 'estadisticas',
+    titulo: 'Estadísticas',
+    desc: 'Visualiza la participación por facultad y escuela, y el total de docentes con clases asignadas.',
+    gradient: 'linear-gradient(180deg, rgba(3,105,161,0.42) 0%, rgba(2,78,120,0.85) 100%)',
+    imagen: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=700&q=80',
+    icon: <IconEstadisticas />,
+    tag: 'Reportes',
+  },
+  {
+    id: 'lidergrupo',
+    titulo: 'Líder de Grupo',
+    desc: 'Visualiza y gestiona las clases bíblicas de las que eres responsable como líder.',
+    gradient: 'linear-gradient(180deg, rgba(5,150,105,0.42) 0%, rgba(4,120,87,0.85) 100%)',
+    imagen: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=700&q=80',
+    icon: <IconLiderGrupo />,
+    tag: 'Mi rol',
+  },
 ]
 
 export default function Dashboard({ sesion }) {
@@ -73,14 +92,16 @@ export default function Dashboard({ sesion }) {
   const [vista, setVista] = useState(esAdmin ? 'home' : 'misclases')
 
   function renderVista() {
-    if (vista === 'misclases') return <MisClases docenteId={sesion.uid} />
+    if (vista === 'misclases')   return <MisClases docenteId={sesion.uid} />
     if (!esAdmin) return null
-    if (vista === 'usuarios')  return <GestionUsuarios uidAdmin={sesion.uid} />
-    if (vista === 'clases')    return <ClasesBiblicas />
-    if (vista === 'alumnos')   return <DataAlumnos />
-    if (vista === 'facultad')  return <Facultad />
-    if (vista === 'docentes')  return <DocentesClases />
-    if (vista === 'lecciones') return <LeccionesClases />
+    if (vista === 'usuarios')    return <GestionUsuarios uidAdmin={sesion.uid} />
+    if (vista === 'clases')      return <ClasesBiblicas />
+    if (vista === 'alumnos')     return <DataAlumnos />
+    if (vista === 'facultad')    return <Facultad />
+    if (vista === 'docentes')    return <DocentesClases />
+    if (vista === 'lecciones')   return <LeccionesClases />
+    if (vista === 'estadisticas') return <Estadisticas />
+    if (vista === 'lidergrupo')  return <MisClases docenteId={sesion.uid} />
     return null
   }
 
@@ -298,6 +319,31 @@ function IconLecciones() {
       <circle cx="54" cy="52" r="13" fill="rgba(255,255,255,0.25)" stroke="rgba(255,255,255,0.7)" strokeWidth="2"/>
       <line x1="54" y1="46" x2="54" y2="52" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
       <line x1="54" y1="52" x2="58" y2="56" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function IconEstadisticas() {
+  return (
+    <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
+      <rect x="8" y="44" width="12" height="20" rx="3" fill="rgba(255,255,255,0.9)"/>
+      <rect x="26" y="30" width="12" height="34" rx="3" fill="rgba(255,255,255,0.9)"/>
+      <rect x="44" y="16" width="12" height="48" rx="3" fill="rgba(255,255,255,0.9)"/>
+      <polyline points="14,38 32,24 50,10" stroke="rgba(255,255,255,0.5)" strokeWidth="3" strokeLinecap="round" fill="none"/>
+      <circle cx="14" cy="38" r="4" fill="rgba(255,255,255,0.8)"/>
+      <circle cx="32" cy="24" r="4" fill="rgba(255,255,255,0.8)"/>
+      <circle cx="50" cy="10" r="4" fill="rgba(255,255,255,0.8)"/>
+    </svg>
+  )
+}
+
+function IconLiderGrupo() {
+  return (
+    <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
+      <circle cx="36" cy="20" r="13" fill="rgba(255,255,255,0.9)"/>
+      <path d="M10 58c0-14.4 11.6-26 26-26s26 11.6 26 26" stroke="rgba(255,255,255,0.9)" strokeWidth="4" strokeLinecap="round" fill="none"/>
+      <circle cx="58" cy="18" r="8" fill="rgba(255,255,255,0.45)"/>
+      <polygon points="56,14 56,22 62,18" fill="rgba(255,255,255,0.85)"/>
     </svg>
   )
 }
