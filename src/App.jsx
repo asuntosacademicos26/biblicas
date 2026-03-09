@@ -29,8 +29,12 @@ export default function App() {
       <Routes>
         <Route path="/setup" element={<Setup />} />
         <Route
-          path="/*"
+          path="/:tab"
           element={sesion ? <Dashboard sesion={sesion} /> : <Landing />}
+        />
+        <Route
+          path="/"
+          element={sesion ? <Navigate to="/notas" replace /> : <Landing />}
         />
       </Routes>
     </HashRouter>
