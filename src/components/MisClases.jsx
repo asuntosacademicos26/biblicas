@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { ref, onValue, push, set, remove, get } from 'firebase/database'
+import { useEffect, useRef, useState } from 'react'
+import { ref, onValue, push, set, remove, get, update } from 'firebase/database'
 import { db } from '../config/firebase'
 
 const hoy = () => new Date().toISOString().slice(0, 10)
@@ -30,7 +30,7 @@ export default function MisClases({ docenteId }) {
   useEffect(() => {
     return onValue(ref(db, 'dataAlumnos'), snap => {
       if (!snap.exists()) { setDataAlumnos([]); return }
-      setDataAlumnos(Object.values(snap.val()))
+      setDataAlumnos(Object.entries(snap.val()).map(([id, d]) => ({ id, ...d })))
     })
   }, [])
 
@@ -94,6 +94,9 @@ export default function MisClases({ docenteId }) {
 
       {/* Sección lecciones */}
       <LeccionesSection docenteId={docenteId} />
+
+      {/* Sección bautizados */}
+      <BautizadosSection clases={clases ?? []} dataAlumnos={dataAlumnos} />
 
       {/* Sección cumpleaños */}
       <CumpleanosSection clases={clases ?? []} dataAlumnos={dataAlumnos} />
@@ -290,6 +293,380 @@ const mc = {
     cursor: 'pointer', fontFamily: 'inherit',
   },
   btnConfirmar: { flex: 1, padding: '0.6rem', borderRadius: 10, fontSize: '0.92rem' },
+}
+
+/* ── Sección bautizados ── */
+function clasificarReligion(religion) {
+  const r = (religion || '').toLowerCase().trim()
+  if (!r || ['ninguna','sin religion','sin religión','no','ninguno','ateo','atea','agnóstico','agnostico','ninguna religion'].includes(r))
+    return 'sin'
+  if (r.includes('adventist') || r.includes('bautizad'))
+    return 'bautizados'
+  return 'otras'
+}
+
+function esRecientePorFecha(fechaBautizo) {
+  if (!fechaBautizo) return true // sin fecha → tratamos como reciente (compatibilidad)
+  const inicio = new Date(fechaBautizo + 'T00:00:00')
+  const limite = new Date(inicio)
+  limite.setMonth(limite.getMonth() + 6)
+  return new Date() <= limite
+}
+
+function tiempoRestanteTexto(fechaBautizo) {
+  if (!fechaBautizo) return null
+  const inicio = new Date(fechaBautizo + 'T00:00:00')
+  const limite = new Date(inicio)
+  limite.setMonth(limite.getMonth() + 6)
+  const diffMs = limite - new Date()
+  if (diffMs <= 0) return null
+  const dias = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+  if (dias <= 30) return `${dias} día${dias !== 1 ? 's' : ''} restante${dias !== 1 ? 's' : ''}`
+  const meses = Math.round(dias / 30.44)
+  return `${meses} mes${meses !== 1 ? 'es' : ''} restante${meses !== 1 ? 's' : ''}`
+}
+
+function formatFechaBautizo(fecha) {
+  if (!fecha) return '—'
+  const [y, m, d] = fecha.split('-')
+  return `${d}/${m}/${y}`
+}
+
+const TABS_DEF = [
+  { id: 'recientes',  label: '🎉 Recién bautizados', color: '#7c3aed', bg: '#ede9fe' },
+  { id: 'bautizados', label: '✝ Bautizados',          color: '#023052', bg: '#e0eaf3' },
+  { id: 'sin',        label: '○ Sin religión',         color: '#64748b', bg: '#f1f5f9' },
+  { id: 'otras',      label: '✦ Otras religiones',     color: '#b45309', bg: '#fef3c7' },
+]
+
+function BautizadosSection({ clases, dataAlumnos }) {
+  const clasesConAlumnos = clases.filter(c => c.alumnos && Object.keys(c.alumnos).length > 0)
+  if (clasesConAlumnos.length === 0) return null
+
+  // Contar recién bautizados en todas las clases
+  const totalRecientes = clasesConAlumnos.reduce((acc, c) => {
+    return acc + Object.values(c.alumnos || {}).filter(a => a.programaBautizo === 'Se bautizó').length
+  }, 0)
+
+  return (
+    <div style={{ marginTop: '1.2rem' }}>
+      <div style={sb.secTitulo}>
+        <span>✝</span> Bautizados por clase
+        {totalRecientes > 0 && (
+          <span style={sb.recientesGlobalChip}>
+            🎉 {totalRecientes} recién bautizado{totalRecientes !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+      {clasesConAlumnos.map(c => (
+        <ClaseBautizadosCard key={c.id} clase={c} dataAlumnos={dataAlumnos} />
+      ))}
+    </div>
+  )
+}
+
+const OPCIONES_BAUTIZO = ['Estudiante', 'Interesado', 'Decidió', 'Se bautizó']
+
+function ClaseBautizadosCard({ clase, dataAlumnos }) {
+  const [tab,      setTab]      = useState('bautizados')
+  const [busqueda, setBusqueda] = useState('')
+  const [abierto,  setAbierto]  = useState(false)
+
+  // Enriquecer alumnos con religion y programaBautizo, conservando su ID
+  const alumnos = Object.entries(clase.alumnos || {}).map(([alumnoId, a]) => {
+    const match = dataAlumnos.find(d =>
+      (a.dni && d.dni === a.dni) ||
+      (a.codigoEstudiante && d.codigoEstudiante === a.codigoEstudiante)
+    )
+    const religion = (match?.religion || a.religion || '').trim()
+    const esBautizado = clasificarReligion(religion) === 'bautizados'
+    return {
+      alumnoId,
+      nombreCompleto:     a.nombreCompleto || `${match?.nombre || ''} ${match?.apellido || ''}`.trim(),
+      dni:                a.dni || match?.dni || '',
+      codigoEstudiante:   a.codigoEstudiante || match?.codigoEstudiante || '',
+      escuelaProfesional: a.escuelaProfesional || match?.escuelaProfesional || '',
+      religion,
+      programaBautizo:    a.programaBautizo || (esBautizado ? '' : 'Estudiante'),
+      fechaBautizo:       a.fechaBautizo || null,
+    }
+  })
+
+  async function cambiarPrograma(alumnoId, valor, alumno) {
+    const camposBautizo = { programaBautizo: valor }
+    if (valor === 'Se bautizó') {
+      camposBautizo.fechaBautizo = new Date().toISOString().slice(0, 10)
+    }
+    await update(ref(db, `clases/${clase.id}/alumnos/${alumnoId}`), camposBautizo)
+
+    if (valor === 'Se bautizó') {
+      // Actualizar religion en dataAlumnos
+      const match = dataAlumnos.find(d =>
+        (alumno.dni && d.dni === alumno.dni) ||
+        (alumno.codigoEstudiante && d.codigoEstudiante === alumno.codigoEstudiante)
+      )
+      if (match?.id) {
+        await update(ref(db, `dataAlumnos/${match.id}`), { religion: 'Adventista del Séptimo Día' })
+      }
+      // Actualizar también en la clase para consistencia inmediata
+      await update(ref(db, `clases/${clase.id}/alumnos/${alumnoId}`), { religion: 'Adventista del Séptimo Día' })
+    }
+  }
+
+  const grupos = { recientes: [], bautizados: [], sin: [], otras: [] }
+  alumnos.forEach(a => {
+    if (a.programaBautizo === 'Se bautizó') {
+      if (esRecientePorFecha(a.fechaBautizo)) {
+        grupos.recientes.push(a)
+      } else {
+        // Pasaron más de 6 meses → pasa al grupo bautizados normales
+        grupos.bautizados.push(a)
+      }
+    } else {
+      grupos[clasificarReligion(a.religion)].push(a)
+    }
+  })
+
+  const tabs = TABS_DEF.map(t => ({ ...t, count: grupos[t.id].length }))
+  const tabActual = tabs.find(t => t.id === tab) ?? tabs[0]
+  const lista = grupos[tab]
+  const q = busqueda.toLowerCase()
+  const filtrada = lista.filter(a =>
+    (a.nombreCompleto || '').toLowerCase().includes(q) ||
+    (a.dni || '').includes(q) ||
+    (a.escuelaProfesional || '').toLowerCase().includes(q)
+  )
+
+  return (
+    <div className="card" style={{ marginTop: '0.75rem' }}>
+      {/* Header clase — clic para expandir */}
+      <div style={sb.claseHeader} onClick={() => setAbierto(v => !v)}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={sb.claseNombre}>📖 {clase.nombre}</div>
+          <div style={sb.claseMeta}>
+            {[clase.facultad, clase.escuela && `› ${clase.escuela}`, clase.ciclo && `Ciclo ${clase.ciclo}`, clase.grupo && `Grupo ${clase.grupo}`].filter(Boolean).join(' · ')}
+          </div>
+        </div>
+        {/* Mini resumen siempre visible */}
+        <div style={sb.miniResumen}>
+          {tabs.map(t => (
+            <span
+              key={t.id}
+              style={{
+                ...sb.miniChip,
+                background: t.bg,
+                color: t.color,
+                ...(t.id === 'recientes' && t.count > 0 ? sb.miniChipReciente : {}),
+              }}
+            >
+              {t.id === 'recientes' && t.count > 0 ? `🎉 ${t.count}` : t.count}
+            </span>
+          ))}
+          <span style={{ ...s.arrow, transform: abierto ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>→</span>
+        </div>
+      </div>
+
+      {/* Contenido expandible */}
+      {abierto && (
+        <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1rem' }}>
+          {/* Chips resumen */}
+          <div style={sb.resumenRow}>
+            {tabs.map(t => (
+              <div
+                key={t.id}
+                style={{ ...sb.resumenChip, background: t.bg, border: `1.5px solid ${t.color}33`, outline: tab === t.id ? `2px solid ${t.color}` : 'none', cursor: 'pointer' }}
+                onClick={() => { setTab(t.id); setBusqueda('') }}
+              >
+                <span style={{ ...sb.resumenNum, color: t.color }}>{t.count}</span>
+                <span style={{ ...sb.resumenLabel, color: t.color }}>{t.label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabs */}
+          <div style={{ ...s.tabs, marginBottom: '1rem' }} className="tabs-scroll">
+            {tabs.map(t => (
+              <button
+                key={t.id}
+                style={{ ...s.tab, ...(tab === t.id ? { ...s.tabActivo, borderBottomColor: t.color, color: t.color } : {}) }}
+                onClick={() => { setTab(t.id); setBusqueda('') }}
+              >
+                {t.label}
+                <span style={{ ...s.tabBadge, background: tab === t.id ? t.color : '#e2e8f0', color: tab === t.id ? 'white' : '#64748b' }}>
+                  {t.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Buscador */}
+          {lista.length > 0 && (
+            <div style={s.searchWrap}>
+              <span style={s.searchIcon}><IconSearch /></span>
+              <input style={s.searchInput} placeholder="Buscar alumno…" value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+            </div>
+          )}
+
+          {/* Tabla */}
+          {lista.length === 0 && <p className="empty-msg">No hay alumnos en esta categoría.</p>}
+          {lista.length > 0 && filtrada.length === 0 && <p className="empty-msg">Sin resultados para "{busqueda}".</p>}
+          {filtrada.length > 0 && (
+            <div className="table-scroll">
+              <table className="users-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 36 }}>#</th>
+                    <th>Nombre completo</th>
+                    <th>DNI</th>
+                    <th>Escuela profesional</th>
+                    <th>Religión</th>
+                    <th>Programa de bautizo</th>
+                    {tab === 'recientes' && <th style={{ textAlign: 'center' }}>Fecha bautizo</th>}
+                    {tab === 'recientes' && <th style={{ textAlign: 'center' }}>Tiempo restante</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtrada.map((a, i) => {
+                    const esBautizado = clasificarReligion(a.religion) === 'bautizados'
+                    const esReciente  = tab === 'recientes'
+                    return (
+                      <tr
+                        key={a.alumnoId}
+                        style={esReciente ? sb.filaReciente : undefined}
+                      >
+                        <td style={{ color: '#94a3b8' }}>{i + 1}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            {esReciente && <span title="Recién bautizado">🎉</span>}
+                            <strong style={{ color: esReciente ? '#5b21b6' : '#023052' }}>
+                              {a.nombreCompleto || '—'}
+                            </strong>
+                            {esReciente && (
+                              <span style={sb.recienteBadge}>Recién bautizado</span>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ color: '#475569' }}>{a.dni || '—'}</td>
+                        <td style={{ color: '#475569' }}>{a.escuelaProfesional || '—'}</td>
+                        <td>
+                          <span style={{ ...sb.religionBadge, background: tabActual.bg, color: tabActual.color }}>
+                            {a.religion || 'Sin especificar'}
+                          </span>
+                        </td>
+                        <td>
+                          {esBautizado || esReciente ? (
+                            <span style={{ ...sb.religionBadge, background: '#ede9fe', color: '#5b21b6' }}>Se bautizó ✓</span>
+                          ) : (
+                            <select
+                              value={a.programaBautizo || 'Estudiante'}
+                              onChange={e => cambiarPrograma(a.alumnoId, e.target.value, a)}
+                              style={sb.selectBautizo}
+                            >
+                              {OPCIONES_BAUTIZO.map(op => (
+                                <option key={op} value={op}>{op}</option>
+                              ))}
+                            </select>
+                          )}
+                        </td>
+                        {tab === 'recientes' && (
+                          <td style={{ textAlign: 'center' }}>
+                            <span style={sb.fechaBautizo}>
+                              {formatFechaBautizo(a.fechaBautizo)}
+                            </span>
+                          </td>
+                        )}
+                        {tab === 'recientes' && (
+                          <td style={{ textAlign: 'center' }}>
+                            {tiempoRestanteTexto(a.fechaBautizo)
+                              ? <span style={sb.tiempoRestante}>{tiempoRestanteTexto(a.fechaBautizo)}</span>
+                              : <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>—</span>
+                            }
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const sb = {
+  secTitulo: {
+    fontSize: '1rem', fontWeight: 800, color: '#023052',
+    display: 'flex', alignItems: 'center', gap: '0.5rem',
+    marginBottom: '0.25rem',
+  },
+  claseHeader: {
+    display: 'flex', alignItems: 'center', gap: '1rem',
+    cursor: 'pointer', userSelect: 'none', flexWrap: 'wrap',
+  },
+  claseNombre: { fontWeight: 700, color: '#023052', fontSize: '0.97rem' },
+  claseMeta:   { fontSize: '0.76rem', color: '#94a3b8', marginTop: '0.15rem' },
+  miniResumen: { display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 },
+  miniChip: {
+    borderRadius: 99, fontSize: '0.72rem', fontWeight: 700,
+    padding: '0.15rem 0.55rem', minWidth: 22, textAlign: 'center',
+  },
+  resumenRow:  { display: 'flex', gap: '0.65rem', marginBottom: '1rem', flexWrap: 'wrap' },
+  resumenChip: {
+    flex: '1 1 100px', borderRadius: 12, padding: '0.75rem 0.9rem',
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    gap: '0.15rem', transition: 'outline 0.15s',
+  },
+  resumenNum:   { fontSize: '1.55rem', fontWeight: 800, lineHeight: 1 },
+  resumenLabel: { fontSize: '0.75rem', fontWeight: 600, textAlign: 'center' },
+  religionBadge: {
+    display: 'inline-flex', alignItems: 'center',
+    borderRadius: 99, fontSize: '0.76rem', fontWeight: 700,
+    padding: '0.18rem 0.7rem',
+  },
+  selectBautizo: {
+    padding: '0.28rem 0.6rem', borderRadius: 8,
+    border: '1.5px solid #e2e8f0', background: 'white',
+    fontSize: '0.8rem', fontWeight: 600, color: '#023052',
+    cursor: 'pointer', fontFamily: 'inherit',
+    outline: 'none',
+  },
+  miniChipReciente: {
+    background: '#7c3aed', color: 'white',
+    boxShadow: '0 0 0 3px #ddd6fe',
+    animation: 'pulse 1.8s infinite',
+  },
+  fechaBautizo: {
+    display: 'inline-flex', alignItems: 'center',
+    background: '#f3e8ff', color: '#6d28d9',
+    borderRadius: 8, fontSize: '0.78rem', fontWeight: 600,
+    padding: '0.18rem 0.55rem',
+  },
+  tiempoRestante: {
+    display: 'inline-flex', alignItems: 'center',
+    background: '#ede9fe', color: '#7c3aed',
+    borderRadius: 8, fontSize: '0.75rem', fontWeight: 700,
+    padding: '0.18rem 0.6rem',
+    border: '1px solid #c4b5fd',
+  },
+  recientesGlobalChip: {
+    marginLeft: '0.5rem',
+    background: '#ede9fe', color: '#5b21b6',
+    borderRadius: 99, fontSize: '0.78rem', fontWeight: 700,
+    padding: '0.2rem 0.75rem',
+    border: '1.5px solid #c4b5fd',
+  },
+  filaReciente: {
+    background: '#faf5ff',
+    borderLeft: '3px solid #7c3aed',
+  },
+  recienteBadge: {
+    background: '#7c3aed', color: 'white',
+    borderRadius: 99, fontSize: '0.68rem', fontWeight: 700,
+    padding: '0.1rem 0.55rem', whiteSpace: 'nowrap',
+  },
 }
 
 /* ── Sección cumpleaños ── */
@@ -563,6 +940,10 @@ function LlamarAsistencia({ claseId, docenteId, alumnos, asistencias }) {
   const [leccionActual, setLeccionActual] = useState(null)  // objeto leccion del docente
   const [leccionNumero, setLeccionNumero] = useState('')
 
+  // Refs para detectar cambios manuales del usuario vs actualizaciones de Firebase
+  const cambiosPendientesRef = useRef(false)
+  const prevFechaRef         = useRef(fecha)
+
   // Cargar la leccion actualmente seleccionada por el docente
   useEffect(() => {
     let unsubLeccion = () => {}
@@ -584,20 +965,43 @@ function LlamarAsistencia({ claseId, docenteId, alumnos, asistencias }) {
     : asistencias.length + 1
   const esActualizacion = !!sesionExistente
 
-  // Inicializar presentes y lección al cambiar fecha
+  // Inicializar presentes y lección cuando cambia la fecha o la lista de alumnos
   useEffect(() => {
-    const init = {}
-    if (sesionExistente?.registros) {
-      alumnos.forEach(a => {
-        const r = sesionExistente.registros[a.id]
-        init[a.id] = r ? r.presente : true
-      })
+    const fechaCambio = prevFechaRef.current !== fecha
+    prevFechaRef.current = fecha
+
+    if (fechaCambio || !cambiosPendientesRef.current) {
+      // Cambió la fecha, o no hay cambios manuales pendientes → resetear desde la sesión guardada
+      const init = {}
+      if (sesionExistente?.registros) {
+        alumnos.forEach(a => {
+          const r = sesionExistente.registros[a.id]
+          init[a.id] = r ? r.presente : true
+        })
+      } else {
+        alumnos.forEach(a => { init[a.id] = true })
+      }
+      setRegistros(init)
+      setLeccionNumero(sesionExistente?.leccionNumero ?? '')
+      cambiosPendientesRef.current = false
     } else {
-      alumnos.forEach(a => { init[a.id] = true })
+      // Solo cambiaron datos de alumnos en Firebase (ej: programaBautizo),
+      // hay cambios manuales pendientes → merge: conservar marcas actuales,
+      // agregar alumnos nuevos, quitar los que ya no están
+      setRegistros(prev => {
+        const merged = { ...prev }
+        alumnos.forEach(a => {
+          if (!(a.id in merged)) {
+            const r = sesionExistente?.registros?.[a.id]
+            merged[a.id] = r ? r.presente : true
+          }
+        })
+        const ids = new Set(alumnos.map(a => a.id))
+        Object.keys(merged).forEach(k => { if (!ids.has(k)) delete merged[k] })
+        return merged
+      })
     }
-    setRegistros(init)
     setGuardado(false)
-    setLeccionNumero(sesionExistente?.leccionNumero ?? '')
   }, [alumnos, fecha])
 
   const totalLecciones = leccionActual?.totalLecciones || 16
@@ -606,9 +1010,13 @@ function LlamarAsistencia({ claseId, docenteId, alumnos, asistencias }) {
   const ausentes  = alumnos.length - presentes
 
   function toggleAlumno(id) {
+    cambiosPendientesRef.current = true
+    setGuardado(false)
     setRegistros(prev => ({ ...prev, [id]: !prev[id] }))
   }
   function marcarTodos(valor) {
+    cambiosPendientesRef.current = true
+    setGuardado(false)
     const nuevo = {}
     alumnos.forEach(a => { nuevo[a.id] = valor })
     setRegistros(nuevo)
@@ -637,6 +1045,7 @@ function LlamarAsistencia({ claseId, docenteId, alumnos, asistencias }) {
     } else {
       await push(ref(db, `clases/${claseId}/asistencias`), datos)
     }
+    cambiosPendientesRef.current = false
     setGuardando(false)
     setGuardado(true)
   }
