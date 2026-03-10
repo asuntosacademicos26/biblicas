@@ -356,19 +356,19 @@ export default function Estadisticas() {
       {/* ── Sección: resumen general ── */}
       <div style={s.secLabel}>Resumen general</div>
       <div style={s.globalGrid}>
-        <MetricaCard valor={clases.length}         label="Clases bíblicas"        color="#6366f1" bg="#eef2ff" icon={<IconClases />} />
-        <MetricaCard valor={docentesConClase.size}  label="Docentes con clase"      color="#0ea5e9" bg="#e0f2fe" icon={<IconDocentes />} />
-        <MetricaCard valor={totalAlumnos}           label="Alumnos en total"        color="#a855f7" bg="#faf5ff" icon={<IconAlumnos />} />
-        <MetricaCard valor={facOrdenadas.length}    label="Facultades participando" color="#f59e0b" bg="#fffbeb" icon={<IconFacBig />} />
+        <MetricaCard valor={clases.length}         label="Clases bíblicas"        color="#6366f1" />
+        <MetricaCard valor={docentesConClase.size}  label="Docentes con clase"      color="#0ea5e9" />
+        <MetricaCard valor={totalAlumnos}           label="Alumnos en total"        color="#a855f7" />
+        <MetricaCard valor={facOrdenadas.length}    label="Facultades participando" color="#f59e0b" />
       </div>
 
       {/* ── Sección: estado espiritual ── */}
       <div style={s.secLabel}>Estado espiritual</div>
       <div style={s.globalGrid}>
-        <MetricaCard valor={gBautizados} label="Ya bautizados (ASD)"    color={C_ASD}      bg="#eff6ff" icon={<IconCruz />} />
-        <MetricaCard valor={gOtras}      label="Otras religiones"        color={C_OTRAS}    bg="#fff7ed" icon={<IconOtras />} />
-        <MetricaCard valor={gRecientes}  label="Recién bautizados"       color={C_RECIENTE} bg="#fdf4ff" icon={<IconReciente />} />
-        <MetricaCard valor={gDecidio}    label="Decidieron bautizarse"   color={C_DECIDIO}  bg="#f0fdf4" icon={<IconDecidio />} />
+        <MetricaCard valor={gBautizados} label="Ya bautizados (ASD)"    color={C_ASD}      />
+        <MetricaCard valor={gOtras}      label="Otras religiones"        color={C_OTRAS}    />
+        <MetricaCard valor={gRecientes}  label="Recién bautizados"       color={C_RECIENTE} />
+        <MetricaCard valor={gDecidio}    label="Decidieron bautizarse"   color={C_DECIDIO}  />
       </div>
 
       {/* ── Gráficos ── */}
@@ -626,10 +626,9 @@ function FacultadBloque({ nombre, data, usuarios, color }) {
 }
 
 /* ── Tarjeta métrica ── */
-function MetricaCard({ valor, label, color, bg, icon }) {
+function MetricaCard({ valor, label, color }) {
   return (
     <div style={{ ...s.metricaCard, borderTop: `3px solid ${color}` }}>
-      <div style={{ ...s.metricaIconWrap, background: bg, color }}>{icon}</div>
       <div style={{ ...s.metricaValor, color }}>{valor}</div>
       <div style={s.metricaLabel}>{label}</div>
     </div>

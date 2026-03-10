@@ -36,7 +36,7 @@ export default function LoginModal({ onClose }) {
             <h2 style={s.title}>Bienvenido</h2>
             <p style={s.subtitle}>Ingresa tus credenciales para continuar</p>
           </div>
-          <button style={s.closeBtn} onClick={onClose} title="Cerrar">✕</button>
+          <button style={s.closeBtn} onClick={onClose} title="Cerrar">Cerrar</button>
         </div>
 
         <div style={s.body}>
