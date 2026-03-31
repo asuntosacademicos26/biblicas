@@ -333,10 +333,11 @@ function formatFechaBautizo(fecha) {
 }
 
 const TABS_DEF = [
-  { id: 'recientes',  label: '🎉 Recién bautizados', color: '#7c3aed', bg: '#ede9fe' },
-  { id: 'bautizados', label: '✝ Bautizados',          color: '#023052', bg: '#e0eaf3' },
-  { id: 'sin',        label: '○ Sin religión',         color: '#64748b', bg: '#f1f5f9' },
-  { id: 'otras',      label: '✦ Otras religiones',     color: '#b45309', bg: '#fef3c7' },
+  { id: 'recientes',   label: '🎉 Recién bautizados', color: '#7c3aed', bg: '#ede9fe' },
+  { id: 'bautizados',  label: '✝ Bautizados',          color: '#023052', bg: '#e0eaf3' },
+  { id: 'sin',         label: '○ Sin religión',         color: '#64748b', bg: '#f1f5f9' },
+  { id: 'interesado',  label: '★ Interesado',           color: '#166534', bg: '#dcfce7' },
+  { id: 'otras',       label: '✦ Otras religiones',     color: '#b45309', bg: '#fef3c7' },
 ]
 
 function BautizadosSection({ clases, dataAlumnos }) {
@@ -386,6 +387,7 @@ function ClaseBautizadosCard({ clase, dataAlumnos }) {
       dni:                a.dni || match?.dni || '',
       codigoEstudiante:   a.codigoEstudiante || match?.codigoEstudiante || '',
       escuelaProfesional: a.escuelaProfesional || match?.escuelaProfesional || '',
+      celular:            a.celular || match?.celular || '',
       religion,
       programaBautizo:    a.programaBautizo || (esBautizado ? '' : 'Estudiante'),
       fechaBautizo:       a.fechaBautizo || null,
@@ -413,7 +415,7 @@ function ClaseBautizadosCard({ clase, dataAlumnos }) {
     }
   }
 
-  const grupos = { recientes: [], bautizados: [], sin: [], otras: [] }
+  const grupos = { recientes: [], bautizados: [], sin: [], interesado: [], otras: [] }
   alumnos.forEach(a => {
     if (a.programaBautizo === 'Se bautizó') {
       if (esRecientePorFecha(a.fechaBautizo)) {
@@ -422,6 +424,8 @@ function ClaseBautizadosCard({ clase, dataAlumnos }) {
         // Pasaron más de 6 meses → pasa al grupo bautizados normales
         grupos.bautizados.push(a)
       }
+    } else if (a.programaBautizo === 'Interesado') {
+      grupos.interesado.push(a)
     } else {
       grupos[clasificarReligion(a.religion)].push(a)
     }
@@ -521,6 +525,7 @@ function ClaseBautizadosCard({ clase, dataAlumnos }) {
                     <th>Escuela profesional</th>
                     <th>Religión</th>
                     <th>Programa de bautizo</th>
+                    {tab === 'interesado' && <th style={{ textAlign: 'center' }}>WhatsApp</th>}
                     {tab === 'recientes' && <th style={{ textAlign: 'center' }}>Fecha bautizo</th>}
                     {tab === 'recientes' && <th style={{ textAlign: 'center' }}>Tiempo restante</th>}
                   </tr>
@@ -568,6 +573,27 @@ function ClaseBautizadosCard({ clase, dataAlumnos }) {
                             </select>
                           )}
                         </td>
+                        {tab === 'interesado' && (
+                          <td style={{ textAlign: 'center' }}>
+                            {a.celular ? (
+                              <a
+                                href={`https://wa.me/51${a.celular.replace(/\D/g, '').replace(/^51/, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={sb.btnWhatsapp}
+                                title={`Abrir WhatsApp: ${a.celular}`}
+                              >
+                                <IconWhatsApp />
+                                <span>{a.celular}</span>
+                              </a>
+                            ) : (
+                              <span style={sb.btnWhatsappSin} title="Sin número registrado">
+                                <IconWhatsApp />
+                                <span>Sin número</span>
+                              </span>
+                            )}
+                          </td>
+                        )}
                         {tab === 'recientes' && (
                           <td style={{ textAlign: 'center' }}>
                             <span style={sb.fechaBautizo}>
@@ -666,6 +692,23 @@ const sb = {
     background: '#7c3aed', color: 'white',
     borderRadius: 99, fontSize: '0.68rem', fontWeight: 700,
     padding: '0.1rem 0.55rem', whiteSpace: 'nowrap',
+  },
+  btnWhatsapp: {
+    display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+    background: '#dcfce7', color: '#166534',
+    borderRadius: 8, fontSize: '0.78rem', fontWeight: 600,
+    padding: '0.22rem 0.65rem',
+    border: '1.5px solid #86efac',
+    textDecoration: 'none', whiteSpace: 'nowrap',
+    transition: 'background 0.15s',
+  },
+  btnWhatsappSin: {
+    display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+    background: '#f1f5f9', color: '#94a3b8',
+    borderRadius: 8, fontSize: '0.78rem', fontWeight: 600,
+    padding: '0.22rem 0.65rem',
+    border: '1.5px solid #e2e8f0',
+    whiteSpace: 'nowrap',
   },
 }
 
@@ -1542,6 +1585,9 @@ function IconPlus() {
 }
 function IconSearch() {
   return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+}
+function IconWhatsApp() {
+  return <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
 }
 function IconPersonas() {
   return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
