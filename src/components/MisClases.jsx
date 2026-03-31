@@ -169,25 +169,28 @@ function LeccionesSection({ docenteId }) {
           {lecciones.map(l => {
             const activa = l.id === leccionActualId
             return (
-              <div
-                key={l.id}
-                style={{ ...s.leccionRow, ...(activa ? s.leccionRowActiva : {}) }}
-                onClick={() => intentarSeleccionar(l)}
-              >
-                <div style={{ ...s.leccionNumCircle, background: activa ? 'linear-gradient(135deg,#023052,#04508a)' : '#e2e8f0', color: activa ? 'white' : '#64748b' }}>
-                  {l.numero}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ ...s.leccionTitulo, fontWeight: activa ? 800 : 600, color: activa ? '#023052' : '#334155' }}>
-                    {l.titulo}
+              <div key={l.id} style={{ ...s.leccionCard, ...(activa ? s.leccionCardActiva : {}) }}>
+                {/* Fila superior: clickeable para marcar como actual */}
+                <div style={s.leccionRow} onClick={() => intentarSeleccionar(l)}>
+                  <div style={{ ...s.leccionNumCircle, background: activa ? 'linear-gradient(135deg,#023052,#04508a)' : '#e2e8f0', color: activa ? 'white' : '#64748b' }}>
+                    {l.numero}
                   </div>
-                  {l.descripcion && (
-                    <div style={s.leccionDesc}>{l.descripcion}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ ...s.leccionTitulo, fontWeight: activa ? 800 : 600, color: activa ? '#023052' : '#334155' }}>
+                      {l.titulo}
+                    </div>
+                    {l.descripcion && (
+                      <div style={s.leccionDesc}>{l.descripcion}</div>
+                    )}
+                  </div>
+                  {activa && (
+                    <div style={s.leccionActivaBadge}>✓ Actual</div>
                   )}
                 </div>
-                {activa && (
-                  <div style={s.leccionActivaBadge}>✓ Actual</div>
-                )}
+                {/* Recursos de apoyo */}
+                <div onClick={e => e.stopPropagation()}>
+                  <RecursosLeccion leccionId={l.id} recursos={l.recursos} />
+                </div>
               </div>
             )
           })}
@@ -204,6 +207,104 @@ function LeccionesSection({ docenteId }) {
         />
       )}
     </>
+  )
+}
+
+/* ── Recursos de apoyo por lección ── */
+function RecursosLeccion({ leccionId, recursos }) {
+  const [mostrarForm, setMostrarForm] = useState(false)
+  const [editId,   setEditId]   = useState(null)
+  const [titulo,   setTitulo]   = useState('')
+  const [url,      setUrl]      = useState('')
+  const [cargando, setCargando] = useState(false)
+  const [error,    setError]    = useState('')
+
+  const lista = Object.entries(recursos || {})
+    .map(([id, rec]) => ({ id, ...rec }))
+    .sort((a, b) => (a.creadoEn || 0) - (b.creadoEn || 0))
+
+  function iniciarNuevo() {
+    setEditId(null); setTitulo(''); setUrl(''); setError(''); setMostrarForm(true)
+  }
+  function iniciarEditar(rec) {
+    setEditId(rec.id); setTitulo(rec.titulo); setUrl(rec.url); setError(''); setMostrarForm(true)
+  }
+  function cancelar() {
+    setMostrarForm(false); setEditId(null); setTitulo(''); setUrl(''); setError('')
+  }
+
+  async function guardar() {
+    if (!titulo.trim()) return setError('El título es obligatorio.')
+    if (!url.trim() || !url.trim().startsWith('http')) return setError('La URL debe comenzar con http.')
+    setCargando(true); setError('')
+    const datos = { titulo: titulo.trim(), url: url.trim() }
+    if (editId) {
+      await update(ref(db, `leccionesBiblicas/${leccionId}/recursos/${editId}`), datos)
+    } else {
+      datos.creadoEn = Date.now()
+      await push(ref(db, `leccionesBiblicas/${leccionId}/recursos`), datos)
+    }
+    cancelar(); setCargando(false)
+  }
+
+  async function eliminar(id, tit) {
+    if (!confirm(`¿Eliminar el recurso "${tit}"?`)) return
+    await remove(ref(db, `leccionesBiblicas/${leccionId}/recursos/${id}`))
+  }
+
+  return (
+    <div style={rl.wrap}>
+      {lista.length > 0 && (
+        <div style={rl.lista}>
+          {lista.map(rec => (
+            <div key={rec.id} style={rl.item}>
+              <span style={rl.itemIcon}><IconLinkRec /></span>
+              <a href={rec.url} target="_blank" rel="noopener noreferrer" style={rl.itemLink} title={rec.url}>
+                {rec.titulo}
+              </a>
+              <div style={rl.itemAcciones}>
+                <button style={rl.btnMin} title="Editar" onClick={() => iniciarEditar(rec)}>
+                  <IconEditar />
+                </button>
+                <button style={{ ...rl.btnMin, color: '#ef4444', borderColor: '#fecaca' }} title="Eliminar" onClick={() => eliminar(rec.id, rec.titulo)}>
+                  <IconTrash />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {mostrarForm ? (
+        <div style={rl.form}>
+          {error && <div style={rl.error}>{error}</div>}
+          <input
+            style={rl.input}
+            placeholder="Título (ej: Canción tema, Material de estudio…)"
+            value={titulo}
+            onChange={e => setTitulo(e.target.value)}
+            autoFocus
+          />
+          <input
+            style={rl.input}
+            placeholder="https://…"
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') guardar(); if (e.key === 'Escape') cancelar() }}
+          />
+          <div style={rl.formBtns}>
+            <button style={rl.btnGuardar} onClick={guardar} disabled={cargando}>
+              {cargando ? 'Guardando…' : editId ? 'Actualizar' : 'Agregar'}
+            </button>
+            <button style={rl.btnCancelarForm} onClick={cancelar}>Cancelar</button>
+          </div>
+        </div>
+      ) : (
+        <button style={rl.btnAgregar} onClick={iniciarNuevo}>
+          <IconLinkRec /> Añadir recurso
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -1580,11 +1681,17 @@ const m = {
 function IconEditar() {
   return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
 }
+function IconTrash() {
+  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+}
 function IconPlus() {
   return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 }
 function IconSearch() {
   return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+}
+function IconLinkRec() {
+  return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
 }
 function IconWhatsApp() {
   return <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
@@ -1628,13 +1735,15 @@ const s = {
     maxWidth: 280, textAlign: 'right', lineHeight: 1.4,
   },
   leccionesLista: { display: 'flex', flexDirection: 'column', gap: '0.4rem' },
+  leccionCard: {
+    borderRadius: 10, border: '1.5px solid #e2e8f0', background: 'white',
+    overflow: 'hidden', transition: 'border-color 0.15s, background 0.15s',
+  },
+  leccionCardActiva: { border: '1.5px solid #93c5fd', background: '#eff6ff' },
   leccionRow: {
     display: 'flex', alignItems: 'center', gap: '0.85rem',
-    padding: '0.65rem 0.9rem', borderRadius: 10,
-    border: '1.5px solid #e2e8f0', background: 'white', cursor: 'pointer',
-    transition: 'border-color 0.15s, background 0.15s',
+    padding: '0.65rem 0.9rem', cursor: 'pointer',
   },
-  leccionRowActiva: { border: '1.5px solid #93c5fd', background: '#eff6ff' },
   leccionNumCircle: {
     width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
     fontWeight: 800, fontSize: '0.85rem',
@@ -1750,4 +1859,60 @@ const s = {
   historialRow:     { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 1rem 0.5rem 1.2rem', borderBottom: '1px solid #f1f5f9' },
   estadoDot:        { width: 10, height: 10, borderRadius: '50%', flexShrink: 0 },
   historialNombre:  { flex: 1, fontSize: '0.86rem', color: '#023052', fontWeight: 500 },
+}
+
+/* ── Estilos recursos por lección ── */
+const rl = {
+  wrap: {
+    padding: '0.55rem 0.9rem 0.7rem',
+    borderTop: '1px dashed #e2e8f0',
+  },
+  lista: { display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '0.5rem' },
+  item: {
+    display: 'flex', alignItems: 'center', gap: '0.5rem',
+    padding: '0.32rem 0.6rem',
+    background: '#f0f9ff', borderRadius: 8, border: '1px solid #bae6fd',
+  },
+  itemIcon: { color: '#0369a1', display: 'flex', flexShrink: 0 },
+  itemLink: {
+    flex: 1, color: '#0369a1', fontSize: '0.82rem', fontWeight: 600,
+    textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  },
+  itemAcciones: { display: 'flex', gap: '0.25rem', flexShrink: 0 },
+  btnMin: {
+    width: 22, height: 22, borderRadius: 5, border: '1.5px solid #e2e8f0',
+    background: 'white', color: '#023052', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit',
+  },
+  form: {
+    display: 'flex', flexDirection: 'column', gap: '0.4rem',
+    padding: '0.6rem', background: '#f8fafc', borderRadius: 8, border: '1.5px solid #e2e8f0',
+  },
+  input: {
+    padding: '0.38rem 0.6rem', borderRadius: 7, border: '1.5px solid #e2e8f0',
+    fontSize: '0.82rem', fontFamily: 'inherit', outline: 'none', background: 'white',
+  },
+  error: {
+    fontSize: '0.77rem', color: '#ef4444', fontWeight: 600,
+    background: '#fef2f2', borderRadius: 6, padding: '0.22rem 0.55rem',
+    border: '1px solid #fecaca',
+  },
+  formBtns: { display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' },
+  btnGuardar: {
+    padding: '0.3rem 0.9rem', borderRadius: 7,
+    background: 'linear-gradient(135deg,#023052,#04508a)', color: 'white',
+    border: 'none', fontWeight: 700, fontSize: '0.79rem', cursor: 'pointer', fontFamily: 'inherit',
+  },
+  btnCancelarForm: {
+    padding: '0.3rem 0.75rem', borderRadius: 7, background: 'white', color: '#64748b',
+    border: '1.5px solid #e2e8f0', fontWeight: 600, fontSize: '0.79rem',
+    cursor: 'pointer', fontFamily: 'inherit',
+  },
+  btnAgregar: {
+    display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+    padding: '0.28rem 0.7rem', borderRadius: 7,
+    background: 'white', color: '#0369a1',
+    border: '1.5px dashed #bae6fd', fontSize: '0.78rem', fontWeight: 600,
+    cursor: 'pointer', fontFamily: 'inherit',
+  },
 }

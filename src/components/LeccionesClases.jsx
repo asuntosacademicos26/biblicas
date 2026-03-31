@@ -80,34 +80,39 @@ export default function LeccionesClases() {
         <div style={s.lista}>
           {paginadas.map((l, i) => (
             <div key={l.id} style={s.leccionCard}>
-              <div style={s.leccionNum}>{l.numero ?? inicio + i + 1}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={s.leccionTitulo}>{l.titulo}</div>
-                {l.totalLecciones && (
-                  <div style={s.leccionChipWrap}>
-                    <span style={s.leccionChip}>📚 {l.totalLecciones} lección{l.totalLecciones !== 1 ? 'es' : ''}</span>
-                  </div>
-                )}
-                {l.descripcion && (
-                  <div style={s.leccionDesc}>{l.descripcion}</div>
-                )}
+              {/* Fila principal: número + contenido + acciones */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                <div style={s.leccionNum}>{l.numero ?? inicio + i + 1}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={s.leccionTitulo}>{l.titulo}</div>
+                  {l.totalLecciones && (
+                    <div style={s.leccionChipWrap}>
+                      <span style={s.leccionChip}>📚 {l.totalLecciones} lección{l.totalLecciones !== 1 ? 'es' : ''}</span>
+                    </div>
+                  )}
+                  {l.descripcion && (
+                    <div style={s.leccionDesc}>{l.descripcion}</div>
+                  )}
+                </div>
+                <div style={s.acciones}>
+                  <button
+                    style={s.btnEditar}
+                    title="Editar"
+                    onClick={() => { setLeccionEdit(l); setModalCrear(true) }}
+                  >
+                    <IconEditar />
+                  </button>
+                  <button
+                    style={s.btnEliminar}
+                    title="Eliminar"
+                    onClick={() => eliminar(l.id, l.titulo)}
+                  >
+                    <IconTrash />
+                  </button>
+                </div>
               </div>
-              <div style={s.acciones}>
-                <button
-                  style={s.btnEditar}
-                  title="Editar"
-                  onClick={() => { setLeccionEdit(l); setModalCrear(true) }}
-                >
-                  <IconEditar />
-                </button>
-                <button
-                  style={s.btnEliminar}
-                  title="Eliminar"
-                  onClick={() => eliminar(l.id, l.titulo)}
-                >
-                  <IconTrash />
-                </button>
-              </div>
+              {/* Recursos de apoyo */}
+              <RecursosSection leccionId={l.id} recursos={l.recursos} />
             </div>
           ))}
         </div>
@@ -244,6 +249,100 @@ function ModalLeccion({ leccion, siguiente, onClose }) {
   )
 }
 
+/* ── Recursos de apoyo ── */
+function RecursosSection({ leccionId, recursos }) {
+  const [mostrarForm, setMostrarForm] = useState(false)
+  const [editId,    setEditId]    = useState(null)
+  const [titulo,    setTitulo]    = useState('')
+  const [url,       setUrl]       = useState('')
+  const [cargando,  setCargando]  = useState(false)
+  const [error,     setError]     = useState('')
+
+  const lista = Object.entries(recursos || {})
+    .map(([id, rec]) => ({ id, ...rec }))
+    .sort((a, b) => (a.creadoEn || 0) - (b.creadoEn || 0))
+
+  function iniciarNuevo() {
+    setEditId(null); setTitulo(''); setUrl(''); setError(''); setMostrarForm(true)
+  }
+  function iniciarEditar(rec) {
+    setEditId(rec.id); setTitulo(rec.titulo); setUrl(rec.url); setError(''); setMostrarForm(true)
+  }
+  function cancelar() {
+    setMostrarForm(false); setEditId(null); setTitulo(''); setUrl(''); setError('')
+  }
+
+  async function guardar() {
+    if (!titulo.trim()) return setError('El título es obligatorio.')
+    if (!url.trim() || !url.trim().startsWith('http')) return setError('Ingresa una URL válida (debe comenzar con http).')
+    setCargando(true); setError('')
+    const datos = { titulo: titulo.trim(), url: url.trim() }
+    if (editId) {
+      await update(ref(db, `leccionesBiblicas/${leccionId}/recursos/${editId}`), datos)
+    } else {
+      datos.creadoEn = Date.now()
+      await push(ref(db, `leccionesBiblicas/${leccionId}/recursos`), datos)
+    }
+    cancelar(); setCargando(false)
+  }
+
+  async function eliminar(id, tit) {
+    if (!confirm(`¿Eliminar el recurso "${tit}"?`)) return
+    await remove(ref(db, `leccionesBiblicas/${leccionId}/recursos/${id}`))
+  }
+
+  return (
+    <div style={r.wrap}>
+      {lista.length > 0 && (
+        <div style={r.lista}>
+          {lista.map(rec => (
+            <div key={rec.id} style={r.item}>
+              <span style={r.itemIcon}><IconLink /></span>
+              <a href={rec.url} target="_blank" rel="noopener noreferrer" style={r.itemLink} title={rec.url}>
+                {rec.titulo}
+              </a>
+              <div style={r.itemAcciones}>
+                <button style={r.btnMin} title="Editar recurso" onClick={() => iniciarEditar(rec)}><IconEditar /></button>
+                <button style={{ ...r.btnMin, ...r.btnMinRed }} title="Eliminar recurso" onClick={() => eliminar(rec.id, rec.titulo)}><IconTrash /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {mostrarForm ? (
+        <div style={r.form}>
+          {error && <div style={r.error}>{error}</div>}
+          <input
+            style={r.input}
+            placeholder="Título (ej: Canción tema, Material de estudio…)"
+            value={titulo}
+            onChange={e => setTitulo(e.target.value)}
+            autoFocus
+          />
+          <input
+            style={r.input}
+            placeholder="https://…"
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') guardar(); if (e.key === 'Escape') cancelar() }}
+          />
+          <div style={r.formBtns}>
+            <button style={r.btnGuardar} onClick={guardar} disabled={cargando}>
+              {cargando ? 'Guardando…' : editId ? 'Actualizar' : 'Agregar'}
+            </button>
+            <button style={r.btnCancelarForm} onClick={cancelar}>Cancelar</button>
+          </div>
+        </div>
+      ) : (
+        <button style={r.btnAgregar} onClick={iniciarNuevo}>
+          <IconLink /> Añadir recurso
+        </button>
+      )}
+    </div>
+  )
+}
+
 /* ── Iconos ── */
 function IconSearch() {
   return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -254,6 +353,9 @@ function IconEditar() {
 }
 function IconTrash() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+}
+function IconLink() {
+  return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
 }
 
 /* ── Estilos ── */
@@ -275,7 +377,7 @@ const s = {
 
   lista: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
   leccionCard: {
-    display: 'flex', alignItems: 'flex-start', gap: '1rem',
+    display: 'flex', flexDirection: 'column', gap: '0',
     padding: '0.9rem 1rem', border: '1.5px solid #e2e8f0',
     borderRadius: 12, background: '#fafbfc',
   },
@@ -348,6 +450,63 @@ const m = {
     padding: '0.6rem 1.3rem', borderRadius: 10,
     border: '1.5px solid #e2e8f0', background: 'white',
     color: '#64748b', fontWeight: 600, fontSize: '0.92rem',
+    cursor: 'pointer', fontFamily: 'inherit',
+  },
+}
+
+/* ── Estilos de recursos ── */
+const r = {
+  wrap: {
+    marginTop: '0.75rem', paddingTop: '0.65rem',
+    borderTop: '1px dashed #e2e8f0',
+  },
+  lista: { display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '0.5rem' },
+  item: {
+    display: 'flex', alignItems: 'center', gap: '0.5rem',
+    padding: '0.35rem 0.6rem',
+    background: '#f0f9ff', borderRadius: 8, border: '1px solid #bae6fd',
+  },
+  itemIcon: { color: '#0369a1', display: 'flex', flexShrink: 0 },
+  itemLink: {
+    flex: 1, color: '#0369a1', fontSize: '0.83rem', fontWeight: 600,
+    textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  },
+  itemAcciones: { display: 'flex', gap: '0.25rem', flexShrink: 0 },
+  btnMin: {
+    width: 24, height: 24, borderRadius: 5, border: '1.5px solid #e2e8f0',
+    background: 'white', color: '#023052', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit',
+  },
+  btnMinRed: { color: '#ef4444', borderColor: '#fecaca' },
+  form: {
+    display: 'flex', flexDirection: 'column', gap: '0.45rem',
+    padding: '0.7rem', background: '#f8fafc', borderRadius: 9, border: '1.5px solid #e2e8f0',
+  },
+  input: {
+    padding: '0.42rem 0.65rem', borderRadius: 7, border: '1.5px solid #e2e8f0',
+    fontSize: '0.83rem', fontFamily: 'inherit', outline: 'none', background: 'white',
+  },
+  error: {
+    fontSize: '0.78rem', color: '#ef4444', fontWeight: 600,
+    background: '#fef2f2', borderRadius: 6, padding: '0.25rem 0.6rem',
+    border: '1px solid #fecaca',
+  },
+  formBtns: { display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' },
+  btnGuardar: {
+    padding: '0.32rem 1rem', borderRadius: 7,
+    background: 'linear-gradient(135deg,#023052,#04508a)', color: 'white',
+    border: 'none', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit',
+  },
+  btnCancelarForm: {
+    padding: '0.32rem 0.8rem', borderRadius: 7, background: 'white', color: '#64748b',
+    border: '1.5px solid #e2e8f0', fontWeight: 600, fontSize: '0.8rem',
+    cursor: 'pointer', fontFamily: 'inherit',
+  },
+  btnAgregar: {
+    display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+    padding: '0.3rem 0.8rem', borderRadius: 7,
+    background: 'white', color: '#0369a1',
+    border: '1.5px dashed #bae6fd', fontSize: '0.79rem', fontWeight: 600,
     cursor: 'pointer', fontFamily: 'inherit',
   },
 }
