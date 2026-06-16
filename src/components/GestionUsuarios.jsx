@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { initializeApp, deleteApp } from 'firebase/app'
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth'
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updatePassword } from 'firebase/auth'
 import { ref, onValue, set, update, remove } from 'firebase/database'
 import { db, firebaseConfig2, DOMINIO } from '../config/firebase'
 
@@ -9,6 +9,7 @@ export default function GestionUsuarios({ uidAdmin }) {
   const [modalCrear,   setModalCrear]   = useState(false)
   const [usuarioEditar, setUsuarioEditar] = useState(null)
   const [toastExito,   setToastExito]   = useState(null)
+  const [toastEditar,  setToastEditar]  = useState(false)
 
   useEffect(() => {
     return onValue(ref(db, 'usuarios'), snap => {
@@ -63,26 +64,21 @@ export default function GestionUsuarios({ uidAdmin }) {
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={f.acciones}>
+                      <button
+                        style={f.btnEdit}
+                        className="btn-edit-icon"
+                        title="Editar usuario"
+                        onClick={() => setUsuarioEditar(u)}
+                      >
+                        <IconEdit />
+                      </button>
                       {u.id !== uidAdmin && (
-                        <>
-                          <button
-                            style={f.btnEdit}
-                            className="btn-edit-icon"
-                            title="Editar usuario"
-                            onClick={() => setUsuarioEditar(u)}
-                          >
-                            <IconEdit />
-                          </button>
-                          <button
-                            className="btn-danger-outline"
-                            onClick={() => eliminarUsuario(u.id, u.username)}
-                          >
-                            Eliminar
-                          </button>
-                        </>
-                      )}
-                      {u.id === uidAdmin && (
-                        <span style={f.tuCuenta}>Tu cuenta</span>
+                        <button
+                          className="btn-danger-outline"
+                          onClick={() => eliminarUsuario(u.id, u.username)}
+                        >
+                          Eliminar
+                        </button>
                       )}
                     </div>
                   </td>
@@ -113,10 +109,24 @@ export default function GestionUsuarios({ uidAdmin }) {
           </div>
         </div>
       )}
+      {toastEditar && (
+        <div style={f.toastCentro}>
+          <div style={f.toastIcono}>✓</div>
+          <div>
+            <div style={f.toastTitulo}>Cambios guardados</div>
+            <div style={f.toastSub}>El usuario fue actualizado correctamente</div>
+          </div>
+        </div>
+      )}
       {usuarioEditar && (
         <ModalEditarUsuario
           usuario={usuarioEditar}
           onClose={() => setUsuarioEditar(null)}
+          onSuccess={() => {
+            setUsuarioEditar(null)
+            setToastEditar(true)
+            setTimeout(() => setToastEditar(false), 3500)
+          }}
         />
       )}
     </>
@@ -164,6 +174,7 @@ function ModalCrearUsuario({ onClose, onSuccess }) {
         celular:       celular.trim(),
         email,
         rol,
+        adminPass: password,
         creadoEn: Date.now(),
       })
 
@@ -247,17 +258,20 @@ function ModalCrearUsuario({ onClose, onSuccess }) {
 /* ══════════════════════════════
    MODAL EDITAR USUARIO
 ══════════════════════════════ */
-function ModalEditarUsuario({ usuario, onClose }) {
+function ModalEditarUsuario({ usuario, onClose, onSuccess }) {
   const [form,     setForm]     = useState({
     nombreCompleto: usuario.nombreCompleto || '',
     dni:            usuario.dni     || '',
     correo:         usuario.correo  || '',
     celular:        usuario.celular || '',
     rol:            usuario.rol,
+    currentPass:    '',
     newPass:        '',
   })
-  const [estado,   setEstado]   = useState(null)
-  const [cargando, setCargando] = useState(false)
+  const [estado,      setEstado]      = useState(null)
+  const [cargando,    setCargando]    = useState(false)
+  const [showCurrent, setShowCurrent] = useState(false)
+  const [showNew,     setShowNew]     = useState(false)
 
   const set_ = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
 
@@ -271,7 +285,8 @@ function ModalEditarUsuario({ usuario, onClose }) {
     e.preventDefault()
     if (!form.nombreCompleto.trim() || !form.dni.trim())
       return setEstado({ tipo: 'error', msg: 'Nombre y DNI son obligatorios.' })
-    if (form.newPass && form.newPass.length < 6)
+
+    if (form.newPass.trim() && form.newPass.trim().length < 6)
       return setEstado({ tipo: 'error', msg: 'La nueva contraseña debe tener al menos 6 caracteres.' })
 
     setCargando(true)
@@ -284,9 +299,40 @@ function ModalEditarUsuario({ usuario, onClose }) {
         celular:        form.celular.trim(),
         rol:            form.rol,
       })
-      setEstado({ tipo: 'success', msg: 'Datos actualizados correctamente.' })
-    } catch {
-      setEstado({ tipo: 'error', msg: 'Error al guardar los cambios.' })
+
+      if (form.newPass.trim() !== '') {
+        const newPassword  = form.newPass.trim()
+        const email        = usuario.email || (usuario.username + DOMINIO)
+        // Prueba: contraseña ingresada manualmente → adminPass → DNI
+        const candidates   = [form.currentPass.trim(), usuario.adminPass, usuario.dni?.trim()].filter(Boolean)
+        let   done         = false
+
+        for (const currentPass of candidates) {
+          let aux = null
+          try {
+            aux = initializeApp(firebaseConfig2, 'aux_reset_' + Math.random().toString(36).slice(2))
+            const authAux = getAuth(aux)
+            const cred    = await signInWithEmailAndPassword(authAux, email, currentPass)
+            await updatePassword(cred.user, newPassword)
+            await update(ref(db, `usuarios/${usuario.id}`), { adminPass: newPassword })
+            done = true
+            break
+          } catch (e) {
+            if (!e?.code?.startsWith('auth/')) throw e
+          } finally {
+            if (aux) await deleteApp(aux)
+          }
+        }
+
+        if (!done) throw { code: 'auth/wrong-password' }
+      }
+
+      onSuccess()
+    } catch (err) {
+      const msg = err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential'
+        ? 'No se pudo actualizar la contraseña. Usa la Consola de Firebase para este usuario.'
+        : 'Error al guardar los cambios.'
+      setEstado({ tipo: 'error', msg })
     } finally {
       setCargando(false)
     }
@@ -341,13 +387,40 @@ function ModalEditarUsuario({ usuario, onClose }) {
               <div style={m.resetLabel}>
                 <IconLock /> Resetear contraseña
               </div>
-              <input
-                type="password"
-                placeholder="Nueva contraseña (dejar vacío para no cambiar)"
-                value={form.newPass}
-                onChange={set_('newPass')}
-                style={{ marginTop: '0.5rem' }}
-              />
+              <div style={{ position: 'relative', marginTop: '0.5rem' }}>
+                <input
+                  type={showCurrent ? 'text' : 'password'}
+                  placeholder="Contraseña actual (solo si fue cambiada manualmente)"
+                  value={form.currentPass}
+                  onChange={set_('currentPass')}
+                  style={{ paddingRight: '2.4rem' }}
+                />
+                <button type="button" style={m.btnEye} onClick={() => setShowCurrent(v => !v)}>
+                  {showCurrent ? <IconEyeOff /> : <IconEye />}
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', alignItems: 'center' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <input
+                    type={showNew ? 'text' : 'password'}
+                    placeholder="Nueva contraseña (dejar vacío para no cambiar)"
+                    value={form.newPass}
+                    onChange={set_('newPass')}
+                    style={{ paddingRight: '2.4rem' }}
+                  />
+                  <button type="button" style={m.btnEye} onClick={() => setShowNew(v => !v)}>
+                    {showNew ? <IconEyeOff /> : <IconEye />}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  style={m.btnDni}
+                  onClick={() => setForm(f => ({ ...f, newPass: usuario.dni?.trim() || '' }))}
+                  title="Usar DNI como nueva contraseña"
+                >
+                  Usar DNI
+                </button>
+              </div>
             </div>
 
             <div style={m.footer}>
@@ -373,6 +446,25 @@ function IconEdit() {
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </svg>
+  )
+}
+
+function IconEye() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  )
+}
+
+function IconEyeOff() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+      <line x1="1" y1="1" x2="23" y2="23"/>
     </svg>
   )
 }
@@ -477,6 +569,17 @@ const m = {
     display: 'flex', alignItems: 'center', gap: '0.4rem',
     fontSize: '0.83rem', fontWeight: 700, color: '#023052',
     textTransform: 'uppercase', letterSpacing: '0.04em',
+  },
+  btnEye: {
+    position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)',
+    background: 'none', border: 'none', cursor: 'pointer',
+    color: '#94a3b8', padding: '0.2rem', display: 'flex', alignItems: 'center',
+  },
+  btnDni: {
+    padding: '0.55rem 0.9rem', borderRadius: 8, whiteSpace: 'nowrap',
+    border: '1.5px solid #cbd5e1', background: '#f1f5f9',
+    color: '#023052', fontWeight: 600, fontSize: '0.82rem',
+    cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
   },
   footer: {
     display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem',
