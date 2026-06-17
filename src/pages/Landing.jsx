@@ -277,9 +277,9 @@ function ReporteMaestroCard({ item, index }) {
   if (esSinClase) {
     fondoDefault = 'rgba(239, 68, 68, 0.03)'; borderColorDefault = '#fee2e2'; opacityDefault = 0.75; dotColor = '#f87171'; numeroColor = '#ef4444'
   } else if (esCeroSesiones) {
-    fondoDefault = 'rgba(99, 102, 241, 0.04)'; borderColorDefault = '#e2e8f0'; opacityDefault = 0.9; dotColor = '#94a3b8'; numeroColor = '#6366f1'
+    fondoDefault = 'rgba(99, 102, 241, 0.04)'; borderColorDefault = '#e2e8f0'; opacityDefault = 0.9; dotColor = '#94a3b8'; numeroColor = '#94a3b8'
   } else if (esEnCurso) {
-    fondoDefault = 'rgba(14, 165, 233, 0.07)'; borderColorDefault = '#bae6fd'; opacityDefault = 1; dotColor = '#10b981'; numeroColor = '#0284c7'
+    fondoDefault = 'rgba(14, 165, 233, 0.07)'; borderColorDefault = '#bae6fd'; opacityDefault = 1; dotColor = '#10b981'; numeroColor = '#10b981'
   } else if (esCompleta) {
     fondoDefault = 'rgba(249, 115, 22, 0.06)'; borderColorDefault = '#f97316'; opacityDefault = 1; dotColor = '#f97316'; numeroColor = '#ea580c'
   }
