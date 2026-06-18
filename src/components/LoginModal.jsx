@@ -36,7 +36,12 @@ export default function LoginModal({ onClose }) {
             <h2 style={s.title}>Bienvenido</h2>
             <p style={s.subtitle}>Ingresa tus credenciales para continuar</p>
           </div>
-          <button style={s.closeBtn} onClick={onClose} title="Cerrar">Cerrar</button>
+          <button style={s.closeBtn} onClick={onClose} title="Cerrar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
 
         <div style={s.body}>
@@ -107,12 +112,22 @@ const s = {
   },
   title:    { fontSize: '1.25rem', color: 'white', fontWeight: 800, letterSpacing: '-0.01em' },
   subtitle: { fontSize: '0.82rem', color: 'rgba(255,255,255,0.7)', marginTop: '0.2rem' },
+
   closeBtn: {
-    background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)',
-    color: 'white', cursor: 'pointer', borderRadius: 8,
-    width: 30, height: 30, fontSize: '0.9rem',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    transition: 'background 0.2s', flexShrink: 0,
+    background: 'rgba(255,255,255,0.15)', 
+    border: '1px solid rgba(255,255,255,0.25)',
+    color: 'white', 
+    cursor: 'pointer', 
+    borderRadius: 8,
+    padding: '0.4rem 0.8rem', /* Añadido: espaciado interno */
+    fontSize: '0.8rem',       /* Ligeramente más pequeño */
+    fontWeight: '600',        /* Añadido: para que se lea mejor */
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    transition: 'background 0.2s', 
+    flexShrink: 0,
+    /* Borramos width: 30 y height: 30 */
   },
   body: { padding: '1.6rem' },
 }
