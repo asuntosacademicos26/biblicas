@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, Suspense, lazy } from 'react'
 import { ref, onValue } from 'firebase/database'
 import { db } from '../config/firebase'
 import {
@@ -11,8 +11,11 @@ import {
   Legend,
   Title,
 } from 'chart.js'
-import { Doughnut as DoughnutChartReal, Bar as BarChartReal } from 'react-chartjs-2'
 import LoginModal from '../components/LoginModal'
+
+// Carga perezosa (Lazy Loading) de los gráficos para no bloquear la pantalla inicial
+const DoughnutChartReal = lazy(() => import('react-chartjs-2').then(module => ({ default: module.Doughnut })))
+const BarChartReal = lazy(() => import('react-chartjs-2').then(module => ({ default: module.Bar })))
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend, Title)
 
@@ -42,6 +45,11 @@ const CONFIG_FILTROS = {
 /* ==========================================================================
    FUNCIONES AUXILIARES (HELPERS PUROS)
    ========================================================================== */
+// ⚡ OPTIMIZACIÓN: Función global para sanear IDs (movida fuera de los useMemo)
+function sanearID(val) {
+  return val !== undefined && val !== null ? String(val).trim().replace(/^0+/, '').toLowerCase() : ''
+}
+
 function esRecientePorFecha(fechaBautizo) {
   if (!fechaBautizo) return true
   const inicio = new Date(fechaBautizo + 'T00:00:00')
@@ -172,7 +180,6 @@ function SectionTitle({ children, color = '#6366f1' }) {
   )
 }
 
-/* COMPONENTE DE FICHA EXPANSIVA CORREGIDO CONTRA DESBORDAMIENTOS LATERALES */
 function FichaEscuelaCard({ nombre, total, color }) {
   const [isHovered, setIsHovered] = useState(false)
   
@@ -188,10 +195,10 @@ function FichaEscuelaCard({ nombre, total, color }) {
         transform: isHovered ? 'scale(1.02)' : 'scale(1)',
         boxShadow: isHovered ? '0 10px 20px rgba(15,23,42,0.08)' : '0 1px 2px rgba(0,0,0,0.01)',
         borderColor: isHovered ? color : '#e2e8f0',
-        alignItems: isHovered ? 'flex-start' : 'center', // Se expande elegantemente hacia abajo
+        alignItems: isHovered ? 'flex-start' : 'center',
         zIndex: isHovered ? 10 : 1,
         position: 'relative',
-        minWidth: 0, // Evita desborde horizontal en contenedores grid
+        minWidth: 0, 
         width: '100%',
         transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)'
       }}
@@ -205,7 +212,7 @@ function FichaEscuelaCard({ nombre, total, color }) {
           textTransform: 'uppercase', 
           textOverflow: isHovered ? 'unset' : 'ellipsis', 
           overflow: isHovered ? 'visible' : 'hidden', 
-          whiteSpace: isHovered ? 'normal' : 'nowrap', // Aquí se rompe hacia abajo en hover
+          whiteSpace: isHovered ? 'normal' : 'nowrap',
           lineHeight: 1.3,
           width: '100%',
           display: 'block',
@@ -284,30 +291,49 @@ function ReporteMaestroCard({ item, index }) {
     fondoDefault = 'rgba(249, 115, 22, 0.06)'; borderColorDefault = '#f97316'; opacityDefault = 1; dotColor = '#f97316'; numeroColor = '#ea580c'
   }
 
+  // Sincronización de las 3 capas de animación
+  const animacionActiva = (esCompleta && !isHovered) ? 'respiracionArcoiris 4.5s infinite ease-in-out' : 'none'
+  const animacionTexto  = (esCompleta && !isHovered) ? 'textoArcoiris 4.5s infinite ease-in-out' : 'none'
+  const animacionFondo  = (esCompleta && !isHovered) ? 'fondoArcoiris 4.5s infinite ease-in-out, respiracionArcoiris 4.5s infinite ease-in-out' : 'none'
+
   return (
     <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
         ...s.reportCard, background: isHovered ? '#eff6ff' : fondoDefault,
-        borderColor: isHovered ? (esCompleta ? '#ea580c' : (esSinClase ? '#ef4444' : '#2563eb')) : borderColorDefault,
+        borderColor: isHovered ? (esCompleta ? '#a855f7' : (esSinClase ? '#ef4444' : '#2563eb')) : borderColorDefault,
         transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
         boxShadow: isHovered ? '0 4px 12px rgba(37,99,235,0.08)' : (esCompleta ? '0 2px 6px rgba(249,115,22,0.15)' : '0 1px 3px rgba(0,0,0,0.01)'),
         opacity: isHovered ? 1 : opacityDefault,
-        animation: (esCompleta && !isHovered) ? 'efectoFuegoAura 2.2s infinite ease-in-out' : 'none',
+        animation: animacionActiva,
         transition: 'all 0.15s ease-in-out'
       }}
     >
       <h3 style={s.cardClaseTitle}>
         <span style={{ display: 'flex', alignItems: 'flex-start', minWidth: 0, flex: 1, paddingRight: '0.4rem' }}>
-          <span style={{ ...s.cardNumber, color: numeroColor }}>{index + 1}.</span>
+          {/* Número animado */}
+          <span style={{ 
+            ...s.cardNumber, 
+            color: animacionTexto !== 'none' ? undefined : numeroColor,
+            animation: animacionTexto 
+          }}>
+            {index + 1}.
+          </span>
           <span style={{ textOverflow: isHovered ? 'unset' : 'ellipsis', overflow: isHovered ? 'visible' : 'hidden', whiteSpace: isHovered ? 'normal' : 'nowrap', minWidth: 0, lineHeight: 1.3, wordBreak: 'break-word' }} title={item.clase}>
             {item.clase}
           </span>
         </span>
-        <span style={{ display: 'block', width: '8px', height: '8px', borderRadius: '50%', background: dotColor, flexShrink: 0, marginTop: '0.22rem', boxShadow: esCompleta ? '0 0 6px #f97316' : 'none' }} />
+        {/* Puntito animado en fondo y brillo */}
+        <span style={{ 
+          display: 'block', width: '8px', height: '8px', borderRadius: '50%', 
+          background: animacionFondo !== 'none' ? undefined : dotColor, 
+          flexShrink: 0, marginTop: '0.22rem', 
+          animation: animacionFondo
+        }} />
       </h3>
 
+      {/* Tooltip Hover */}
       {isHovered && (
         <div style={s.tooltipBubble}>
           <div>
@@ -318,8 +344,21 @@ function ReporteMaestroCard({ item, index }) {
             <span style={s.cardTeacherLabel}>Lección Elegida</span>
             <h4 style={{ ...s.cardDocenteTooltip, fontWeight: '600', color: '#60a5fa', fontSize: '0.76rem' }}>{item.leccion}</h4>
           </div>
-          <div style={{ ...sc.cardBadgeTooltip, background: esCompleta ? 'linear-gradient(135deg, #f97316, #ef4444)' : (esSinClase ? '#ef4444' : (item.sesiones > 0 ? '#10b981' : '#64748b')), boxShadow: esCompleta ? '0 2px 6px rgba(249,115,22,0.3)' : 'none' }}>
-            {esSinClase ? 'Inactivo ❌' : `${item.sesiones}/8 ${item.sesiones === 1 ? 'sesión' : 'sesiones'} ${esCompleta ? '🔥' : ''}`}
+          {/* Casilla interior de sesiones completadas animada */}
+          <div style={{ 
+            ...sc.cardBadgeTooltip, 
+            background: esCompleta ? 'transparent' : (esSinClase ? '#ef4444' : (item.sesiones > 0 ? '#10b981' : '#64748b')),
+            animation: esCompleta ? 'fondoArcoiris 4.5s infinite ease-in-out, respiracionArcoiris 4.5s infinite ease-in-out' : 'none',
+            boxShadow: esCompleta ? '0 2px 6px rgba(168,85,247,0.3)' : 'none' 
+          }}>
+            {esSinClase ? 'Inactivo ❌' : (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                {item.sesiones}/8 {item.sesiones === 1 ? 'sesión' : 'sesiones'} 
+                {esCompleta && (
+                  <span style={{ animation: 'girarTonoEmoji 2.5s linear infinite', display: 'inline-block' }}>🌟</span>
+                )}
+              </span>
+            )}
           </div>
           <div style={s.tooltipArrow} />
         </div>
@@ -333,6 +372,7 @@ function ReporteMaestroCard({ item, index }) {
    ========================================================================== */
 export default function Landing() {
   const [modalAbierto, setModalAbierto] = useState(false)
+  const [mostrarDetallesClases, setMostrarDetallesClases] = useState(false)
   const [clases,      setClases]      = useState(null)
   const [usuarios,    setUsuarios]    = useState([])
   const [facultades,  setFacultades]  = useState([])
@@ -379,6 +419,22 @@ export default function Landing() {
       desubscribirClases(); desubscribirUsuarios(); desubscribirFacultades(); desubscribirDataAlumnos(); desubscribirLecciones()
     }
   }, [])
+
+  /* ── ⚡ OPTIMIZACIÓN ROOT: DICCIONARIOS DE ACCESO RÁPIDO PARA ALUMNOS ── */
+  // Este bloque ahora está en la raíz del componente, solucionando el colapso.
+  const diccionariosPadron = useMemo(() => {
+    const mapDni = new Map()
+    const mapCod = new Map()
+    
+    dataAlumnos.forEach(d => {
+      const dni = sanearID(d.dni)
+      const cod = sanearID(d.codigoEstudiante || d.codigo)
+      if (dni) mapDni.set(dni, d)
+      if (cod) mapCod.set(cod, d)
+    })
+    
+    return { mapDni, mapCod }
+  }, [dataAlumnos])
 
   /* ── 📊 USEMEMO: PROCESAMIENTO CUANTITATIVO DE AULAS/CLASES APERTURADAS ── */
   const dataClasesPorEstructura = useMemo(() => {
@@ -438,8 +494,6 @@ export default function Landing() {
     const totalDocentes   = new Set(clases.map(c => c.docenteId).filter(Boolean)).size
     const totalFacultades = facultades.length
 
-    const sanearID = (val) => val !== undefined && val !== null ? String(val).trim().replace(/^0+/, '').toLowerCase() : ''
-
     const escuelasAcumuladasMap = new Map()
     const alumnosUnicosActivos = new Map()
 
@@ -452,11 +506,12 @@ export default function Landing() {
         const idUnico = sanearID(alumnoInscrito.codigoEstudiante || alumnoInscrito.dni || alumnoInscrito.id)
         if (!idUnico) return
 
-        const matchPadron = dataAlumnos.find(d => {
-          const dniM = sanearID(d.dni);   const dniA = sanearID(alumnoInscrito.dni)
-          const codM = sanearID(d.codigoEstudiante || d.codigo); const codA = sanearID(alumnoInscrito.codigoEstudiante || alumnoInscrito.codigo)
-          return (dniA && dniM === dniA) || (codA && codM === codA)
-        })
+        const dniA = sanearID(alumnoInscrito.dni)
+        const codA = sanearID(alumnoInscrito.codigoEstudiante || alumnoInscrito.codigo)
+        
+        // Uso correcto del diccionario pre-procesado
+        const matchPadron = (dniA && diccionariosPadron.mapDni.get(dniA)) || 
+                            (codA && diccionariosPadron.mapCod.get(codA))
 
         const escuelaOriginal = matchPadron?.escuela || alumnoInscrito.escuela || escClase
         const facultadOriginal = matchPadron?.facultad || alumnoInscrito.facultad || facClase
@@ -501,7 +556,6 @@ export default function Landing() {
     let gBautizados = 0, gOtras = 0, gRecientes = 0, gDecidio = 0
 
     alumnosUnicosActivos.forEach(datos => {
-      /* SOLUCIÓN AL BUG DETECTADO: Usamos 'programa' en lugar del obsoleto 'programme' */
       const { facReal, escReal, programa, fechaBautizo, religion } = datos
 
       let esReciente = false
@@ -575,7 +629,7 @@ export default function Landing() {
       totalClases, totalAlumnos: alumnosUnicosActivos.size, totalDocentes, totalFacultades,
       gBautizados, gOtras, gRecientes, gDecidio, facOrdenadas, listaEscuelasGlobal
     }
-  }, [clases, facultades, dataAlumnos])
+  }, [clases, facultades, dataAlumnos, diccionariosPadron])
 
   const escuelasFiltradasLista = useMemo(() => {
     if (!globalDataYGraficos) return []
@@ -689,7 +743,6 @@ export default function Landing() {
   const escuelasRecientesAgrupadas = useMemo(() => {
     if (!clases || !dataAlumnos) return []
     const mapaEscuelas = new Map()
-    const sanearID = (val) => val !== undefined && val !== null ? String(val).trim().replace(/^0+/, '').toLowerCase() : ''
     const filtradosVistos = new Set()
 
     clases.forEach(c => {
@@ -702,11 +755,12 @@ export default function Landing() {
         const idUnico = sanearID(alumnoInscrito.codigoEstudiante || alumnoInscrito.dni || alumnoInscrito.id)
         if (!idUnico) return
 
-        const matchPadron = dataAlumnos.find(d => {
-          const dniM = sanearID(d.dni); const dniA = sanearID(alumnoInscrito.dni)
-          const codM = sanearID(d.codigoEstudiante || d.codigo); const codA = sanearID(alumnoInscrito.codigoEstudiante || alumnoInscrito.codigo)
-          return (dniA && dniM === dniA) || (codA && codM === codA)
-        })
+        const dniA = sanearID(alumnoInscrito.dni)
+        const codA = sanearID(alumnoInscrito.codigoEstudiante || alumnoInscrito.codigo)
+        
+        // Uso correcto del diccionario aquí también
+        const matchPadron = (dniA && diccionariosPadron.mapDni.get(dniA)) || 
+                            (codA && diccionariosPadron.mapCod.get(codA))
 
         const programme = alumnoInscrito.programaBautizo || ''
         const fechaBautizo = alumnoInscrito.fechaBautizo || ''
@@ -746,7 +800,7 @@ export default function Landing() {
         count
       })).sort((a, b) => b.count - a.count)
     })).sort((a, b) => b.totalRecientes - a.totalRecientes)
-  }, [clases, dataAlumnos])
+  }, [clases, dataAlumnos, diccionariosPadron])
 
   /* ── 📋 MAPEO DE HISTORIAL DE MAESTROS DESGLOSADO POR AULA ÚNICA ── */
   const maestrosReporte = useMemo(() => {
@@ -846,10 +900,44 @@ export default function Landing() {
     <div style={s.page}>
       
       <style>{`
-        @keyframes efectoFuegoAura {
-          0% { box-shadow: 0 0 4px rgba(249,115,22,0.4), 0 0 8px rgba(239,68,68,0.2); border-color: #f97316; }
-          50% { box-shadow: 0 0 14px rgba(251,191,36,0.75), 0 0 22px rgba(249,115,22,0.5); border-color: #fbbf24; }
-          100% { box-shadow: 0 0 4px rgba(249,115,22,0.4), 0 0 8px rgba(239,68,68,0.2); border-color: #f97316; }
+        /* Sombra y bordes */
+        @keyframes respiracionArcoiris {
+          0%   { box-shadow: 0 0 6px rgba(239,68,68,0.4), 0 0 12px rgba(239,68,68,0.2); border-color: #ef4444; } 
+          16%  { box-shadow: 0 0 16px rgba(249,115,22,0.8), 0 0 24px rgba(249,115,22,0.4); border-color: #f97316; } 
+          33%  { box-shadow: 0 0 6px rgba(234,179,8,0.4), 0 0 12px rgba(234,179,8,0.2); border-color: #eab308; } 
+          50%  { box-shadow: 0 0 16px rgba(34,197,94,0.8), 0 0 24px rgba(34,197,94,0.4); border-color: #22c55e; } 
+          66%  { box-shadow: 0 0 6px rgba(59,130,246,0.4), 0 0 12px rgba(59,130,246,0.2); border-color: #3b82f6; } 
+          83%  { box-shadow: 0 0 16px rgba(168,85,247,0.8), 0 0 24px rgba(168,85,247,0.4); border-color: #a855f7; } 
+          100% { box-shadow: 0 0 6px rgba(239,68,68,0.4), 0 0 12px rgba(239,68,68,0.2); border-color: #ef4444; } 
+        }
+
+        /* Color del texto (números) */
+        @keyframes textoArcoiris {
+          0%   { color: #ef4444; }
+          16%  { color: #f97316; }
+          33%  { color: #eab308; }
+          50%  { color: #22c55e; }
+          66%  { color: #3b82f6; }
+          83%  { color: #a855f7; }
+          100% { color: #ef4444; }
+        }
+
+        /* Color de fondos (puntitos y casillas) */
+        @keyframes fondoArcoiris {
+          0%   { background-color: #ef4444; }
+          16%  { background-color: #f97316; }
+          33%  { background-color: #eab308; }
+          50%  { background-color: #22c55e; }
+          66%  { background-color: #3b82f6; }
+          83%  { background-color: #a855f7; }
+          100% { background-color: #ef4444; }
+        }
+
+        /* Rota el tono nativo de los emojis */
+        @keyframes girarTonoEmoji {
+          0%   { filter: hue-rotate(0deg) scale(1); }
+          50%  { filter: hue-rotate(180deg) scale(1.15); }
+          100% { filter: hue-rotate(360deg) scale(1); }
         }
       `}</style>
 
@@ -908,7 +996,6 @@ export default function Landing() {
           </div>
         ) : (
           <>
-            {/* Sección: Resumen Espiritual (AHORA MOSTRANDO LOS DATOS COMPILADOS REALES) */}
             <SectionTitle color={COLOR_ESTADO.ASD}>✝️ Estado Espiritual — Resumen</SectionTitle>
             <div style={s.metricsGrid}>
               <MetricCard label="Bautizados ASD" value={globalDataYGraficos.gBautizados} color={COLOR_ESTADO.ASD} bg="#f0f6ff" icon="⛪" />
@@ -917,11 +1004,9 @@ export default function Landing() {
               <MetricCard label="Decidió" value={globalDataYGraficos.gDecidio} color={COLOR_ESTADO.DECIDIO} bg="#f5fdf8" icon="🔥" />
             </div>
 
-            {/* GRÁFICO EDUCATIVO MODULAR DE RECIÉN BAUTIZADOS AGRUPADO POR ESCUELAS */}
             <SectionTitle color="#9333ea">🕊️ Alumnos Recién Bautizados por Escuela Profesional</SectionTitle>
             
             <div style={{ ...sc.card, marginBottom: '2.5rem', background: '#ffffff' }}>
-              
               {escuelasRecientesAgrupadas.length === 0 ? (
                 <p style={{ color: '#94a3b8', fontSize: '0.85rem', textAlign: 'center', padding: '3rem 0', fontStyle: 'italic' }}>
                   No se registran conversiones en los últimos meses.
@@ -942,7 +1027,6 @@ export default function Landing() {
               )}
             </div>
 
-            {/* REPORTE DE TOTALES POR ESCUELA PROFESIONAL (COMPACTADO EN DOS COLUMNAS ULTRA ESTABLES) */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
               <SectionTitle color="#ea580c">👥 Población Adventista Total por Escuela Profesional</SectionTitle>
               <div style={sc.counterBadgeGlobal}>
@@ -980,8 +1064,12 @@ export default function Landing() {
               ) : (
                 <div style={s.layoutGridImagen}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minWidth: 0 }}>
+                    
+                    {/* ⚡ OPTIMIZACIÓN: Etiqueta Suspense envolviendo el gráfico */}
                     <div style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0 }}>
-                      <DoughnutChartReal data={doughnutEscuelasData} options={getDoughnutOpts()} />
+                      <Suspense fallback={<div style={{color:'#94a3b8', fontSize:'0.8rem'}}>Dibujando gráfico...</div>}>
+                        <DoughnutChartReal data={doughnutEscuelasData} options={getDoughnutOpts()} />
+                      </Suspense>
                     </div>
                     
                     <div style={sc.sumaSimpleBlancaContainer}>
@@ -998,9 +1086,6 @@ export default function Landing() {
                     </div>
                   </div>
 
-                  
-                  
-                  {/* Bloques equilibrados de dos columnas exactas e inmunes a desborde horizontal */}
                   <div style={{ ...sc.escuelasGridBotones, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
                     {escuelasFiltradasLista.map((esc, idx) => (
                       <FichaEscuelaCard 
@@ -1015,7 +1100,6 @@ export default function Landing() {
               )}
             </div>
 
-            {/* 👥 RECUENTO TOTAL DE ALUMNOS PARTICIPANTES GENERALES */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginTop: '2.5rem' }}>
               <SectionTitle color="#2563eb">👨‍🎓 Total de estudiantes en clases bíblicas</SectionTitle>
               <div style={{ ...sc.counterBadgeGlobal, background: '#eff6ff', color: '#2563eb', borderColor: '#2563eb33' }}>
@@ -1053,10 +1137,13 @@ export default function Landing() {
               ) : (
                 <div style={s.layoutGridImagen}>
                   
-                  {/* COLUMNA IZQUIERDA: DONA HÍBRIDA DINÁMICA */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minWidth: 0 }}>
+                    
+                    {/* ⚡ OPTIMIZACIÓN: Etiqueta Suspense envolviendo el gráfico */}
                     <div style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0 }}>
-                      <DoughnutChartReal data={doughnutTotalParticipantesData} options={getDoughnutOpts()} />
+                      <Suspense fallback={<div style={{color:'#94a3b8', fontSize:'0.8rem'}}>Dibujando gráfico...</div>}>
+                        <DoughnutChartReal data={doughnutTotalParticipantesData} options={getDoughnutOpts()} />
+                      </Suspense>
                     </div>
                     
                     <div style={sc.sumaSimpleBlancaContainer}>
@@ -1073,7 +1160,6 @@ export default function Landing() {
                     </div>
                   </div>
                   
-                  {/* Cuadrícula lateral corregida a 2 columnas con expansión vertical limpia */}
                   <div style={{ ...sc.escuelasGridBotones, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
                     {totalEscuelasLista.map((esc, idx) => (
                       <FichaEscuelaCard 
@@ -1088,7 +1174,6 @@ export default function Landing() {
               )}
             </div>
 
-            {/* 🏫 REPORTE: VOLUMEN DE CLASES BÍBLICAS ACTIVAS (100% PANTALLA COMPLETA) */}
             <SectionTitle color="#6366f1">🏫+📖 Clases Bíblicas Activas por Escuela y Facultad</SectionTitle>
             
             <div style={{ ...sc.card, marginBottom: '2.5rem' }}>
@@ -1100,66 +1185,97 @@ export default function Landing() {
                   No se registran clases bíblicas configuradas en el sistema.
                 </p>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem', width: '100%' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
                   
-                  {/* Gráfico de Barras a pantalla completa con Tooltip Personalizado */}
+                  {/* ⚡ OPTIMIZACIÓN: Etiqueta Suspense envolviendo el gráfico */}
                   <div style={{ width: '100%', height: 420, padding: '0 0.5rem' }}>
-                    <BarChartReal data={dataClasesPorEstructura.barChartData} options={getBarOpts()} />
+                    <Suspense fallback={<div style={{color:'#94a3b8', fontSize:'0.8rem', textAlign:'center', paddingTop: '100px'}}>Dibujando gráfico...</div>}>
+                      <BarChartReal data={dataClasesPorEstructura.barChartData} options={getBarOpts()} />
+                    </Suspense>
                   </div>
 
-                  {/* Listado en formato de tablero general adaptativo */}
-                  <div style={{ ...sc.escuelasGridBotones, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
-                    {dataClasesPorEstructura.escuelas.map((esc, idx) => (
-                      <FichaEscuelaCard 
-                        key={`clase-esc-${idx}`}
-                        nombre={esc.nombre}
-                        total={esc.total}
-                        color={PALETA_COLORES[idx % PALETA_COLORES.length]}
-                      />
-                    ))}
+                  {/* BOTÓN PARA DESPLEGAR DETALLES */}
+                  <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem', paddingBottom: mostrarDetallesClases ? '1rem' : '0' }}>
+                    <button
+                      onClick={() => setMostrarDetallesClases(!mostrarDetallesClases)}
+                      style={{
+                        padding: '0.55rem 1.5rem',
+                        fontSize: '0.82rem',
+                        fontWeight: '700',
+                        borderRadius: '99px',
+                        background: mostrarDetallesClases ? '#f8fafc' : '#eff6ff',
+                        color: mostrarDetallesClases ? '#64748b' : '#3b82f6',
+                        border: `1px solid ${mostrarDetallesClases ? '#e2e8f0' : '#bfdbfe'}`,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        transition: 'all 0.2s ease',
+                        boxShadow: mostrarDetallesClases ? 'none' : '0 4px 12px rgba(59,130,246,0.15)'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                    >
+                      {mostrarDetallesClases ? 'Ocultar desglose detallado ⬆️' : 'Ver desglose por Escuelas y Facultades ⬇️'}
+                    </button>
                   </div>
+
+                  {/* CONTENIDO OCULTO */}
+                  {mostrarDetallesClases && (
+                    <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                      <div style={{ ...sc.escuelasGridBotones, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', marginTop: '1rem' }}>
+                        {dataClasesPorEstructura.escuelas.map((esc, idx) => (
+                          <FichaEscuelaCard 
+                            key={`clase-esc-${idx}`}
+                            nombre={esc.nombre}
+                            total={esc.total}
+                            color={PALETA_COLORES[idx % PALETA_COLORES.length]}
+                          />
+                        ))}
+                      </div>
+
+                      <div style={{ marginTop: '3rem', borderTop: '1px solid #e2e8f0', paddingTop: '2rem' }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '1.2rem' }}>
+                          Resumen de Clase Bíblica por Facultad
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1.25rem' }}>
+                          {dataClasesPorEstructura.facultades
+                            .filter(f => f.nombre !== 'Faculty Computer Science')
+                            .map((fac, idx) => {
+                              const colorFacultad = PALETA_COLORES[idx % PALETA_COLORES.length]
+                              return (
+                                <div 
+                                  key={`clase-fac-${idx}`}
+                                  style={{ 
+                                    background: '#ffffff', 
+                                    border: `1px solid ${colorFacultad}25`, 
+                                    borderLeft: `5px solid ${colorFacultad}`,
+                                    padding: '1.2rem', 
+                                    borderRadius: '16px', 
+                                    display: 'flex', 
+                                    flexDirection: 'column', 
+                                    justifyContent: 'space-between',
+                                    gap: '0.3rem',
+                                    minHeight: '120px',
+                                    boxShadow: '0 4px 12px rgba(15,23,42,0.015)'
+                                  }}
+                                >
+                                  <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{fac.nombre}</div>
+                                  <div style={{ fontSize: '1.4rem', fontWeight: '950', color: colorFacultad, lineHeight: 1.2 }}>
+                                    {fac.total} <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>{fac.total === 1 ? 'Clase' : 'Clases'}</span>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               )}
-
-              {/* Resumen de Facultades Pintados en Sincronía con la Dona */}
-              <div style={{ marginTop: '3rem', borderTop: '1px solid #e2e8f0', paddingTop: '2rem' }}>
-                <div style={{ fontSize: '0.72rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '1.2rem' }}>
-                  Resumen de Clase Bíblica por Facultad
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1.25rem' }}>
-                  {dataClasesPorEstructura.facultades
-                    .filter(f => f.nombre !== 'Faculty Computer Science')
-                    .map((fac, idx) => {
-                      const colorFacultad = PALETA_COLORES[idx % PALETA_COLORES.length]
-                      return (
-                        <div 
-                          key={`clase-fac-${idx}`}
-                          style={{ 
-                            background: '#ffffff', 
-                            border: `1px solid ${colorFacultad}25`, 
-                            borderLeft: `5px solid ${colorFacultad}`,
-                            padding: '1.2rem', 
-                            borderRadius: '16px', 
-                            display: 'flex', 
-                            flexDirection: 'column', 
-                            justifyContent: 'space-between',
-                            gap: '0.3rem',
-                            minHeight: '120px',
-                            boxShadow: '0 4px 12px rgba(15,23,42,0.015)'
-                          }}
-                        >
-                          <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{fac.nombre}</div>
-                          <div style={{ fontSize: '1.4rem', fontWeight: '950', color: colorFacultad, lineHeight: 1.2 }}>
-                            {fac.total} <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>{fac.total === 1 ? 'Clase' : 'Clases'}</span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                </div>
-              </div>
             </div>
 
-            {/* 🔄 SECCIÓN INFERIOR: MATRIZ OPERATIVA CON FILTRADO PRECISADO DE DOCENTES */}
             <div style={s.reportHeaderRow}>
               <div style={sc.secTitleContainer}>
                 <div style={{ ...sc.secTitleIndicator, background: '#0ea5e9' }} />
@@ -1196,7 +1312,6 @@ export default function Landing() {
         )}
       </main>
 
-      {/* Footer */}
       <footer style={s.footer}>
         <div style={s.footerMain}>© {new Date().getFullYear()} Clases Bíblicas · Universidad Peruana Unión — Juliaca</div>
         <div style={s.footerPowered}>Powered by <strong style={{ color: '#64748b' }}>Asuntos Académicos 2026</strong></div>
