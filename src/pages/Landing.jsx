@@ -903,7 +903,7 @@ export default function Landing() {
         /* Sombra y bordes */
         @keyframes respiracionArcoiris {
           0%   { box-shadow: 0 0 6px rgba(239,68,68,0.4), 0 0 12px rgba(239,68,68,0.2); border-color: #ef4444; } 
-          16%  { box-shadow: 0 0 16px rgba(249,115,22,0.8), 0 0 24px rgba(249,115,22,0.4); border-color: #f97316; } 
+          16%  { box-shadow: 0 0 16px rgba(236,72,153,0.8), 0 0 24px rgba(236,72,153,0.4); border-color: #ec4899; } /* ¡Ahora es rosado! */
           33%  { box-shadow: 0 0 6px rgba(234,179,8,0.4), 0 0 12px rgba(234,179,8,0.2); border-color: #eab308; } 
           50%  { box-shadow: 0 0 16px rgba(34,197,94,0.8), 0 0 24px rgba(34,197,94,0.4); border-color: #22c55e; } 
           66%  { box-shadow: 0 0 6px rgba(59,130,246,0.4), 0 0 12px rgba(59,130,246,0.2); border-color: #3b82f6; } 
@@ -914,7 +914,7 @@ export default function Landing() {
         /* Color del texto (números) */
         @keyframes textoArcoiris {
           0%   { color: #ef4444; }
-          16%  { color: #f97316; }
+          16%  { color: #ec4899; } /* ¡Ahora es rosado! */
           33%  { color: #eab308; }
           50%  { color: #22c55e; }
           66%  { color: #3b82f6; }
@@ -925,7 +925,7 @@ export default function Landing() {
         /* Color de fondos (puntitos y casillas) */
         @keyframes fondoArcoiris {
           0%   { background-color: #ef4444; }
-          16%  { background-color: #f97316; }
+          16%  { background-color: #ec4899; } /* ¡Ahora es rosado! */
           33%  { background-color: #eab308; }
           50%  { background-color: #22c55e; }
           66%  { background-color: #3b82f6; }
