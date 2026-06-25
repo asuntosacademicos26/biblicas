@@ -1060,7 +1060,7 @@ function DetalleClase({ clase, docenteId, dataAlumnos, onVolver }) {
 
         {/* Tab: Historial */}
         {tab === 'historial' && (
-          <HistorialAsistencia asistencias={asistencias} />
+          <HistorialAsistencia claseId={clase.id} asistencias={asistencias} />
         )}
       </div>
 
@@ -1100,207 +1100,225 @@ function LlamarAsistencia({ claseId, docenteId, alumnos, asistencias }) {
       })
     })
     return () => { unsubId(); unsubLeccion() }
-  }, [docenteId])
+      }, [docenteId])
 
-  // Sesión existente para la fecha seleccionada
-  const sesionExistente = asistencias.find(a => a.fecha === fecha) ?? null
-  const proximaSesion   = sesionExistente
-    ? (sesionExistente.sesion ?? asistencias.findIndex(a => a.fecha === fecha) + 1)
-    : asistencias.length + 1
-  const esActualizacion = !!sesionExistente
+      // Sesión existente para la fecha seleccionada
+      const sesionExistente = asistencias.find(a => a.fecha === fecha) ?? null
+      const proximaSesion   = sesionExistente
+        ? (sesionExistente.sesion ?? asistencias.findIndex(a => a.fecha === fecha) + 1)
+        : asistencias.length + 1
+      const esActualizacion = !!sesionExistente
 
-  // Inicializar presentes y lección cuando cambia la fecha o la lista de alumnos
-  useEffect(() => {
-    const fechaCambio = prevFechaRef.current !== fecha
-    prevFechaRef.current = fecha
+      // Inicializar presentes y lección cuando cambia la fecha o la lista de alumnos
+      useEffect(() => {
+        const fechaCambio = prevFechaRef.current !== fecha
+        prevFechaRef.current = fecha
 
-    if (fechaCambio || !cambiosPendientesRef.current) {
-      // Cambió la fecha, o no hay cambios manuales pendientes → resetear desde la sesión guardada
-      const init = {}
-      if (sesionExistente?.registros) {
-        alumnos.forEach(a => {
-          const r = sesionExistente.registros[a.id]
-          init[a.id] = r ? r.presente : true
-        })
-      } else {
-        alumnos.forEach(a => { init[a.id] = true })
-      }
-      setRegistros(init)
-      setLeccionNumero(sesionExistente?.leccionNumero ?? '')
-      cambiosPendientesRef.current = false
-    } else {
-      // Solo cambiaron datos de alumnos en Firebase (ej: programaBautizo),
-      // hay cambios manuales pendientes → merge: conservar marcas actuales,
-      // agregar alumnos nuevos, quitar los que ya no están
-      setRegistros(prev => {
-        const merged = { ...prev }
-        alumnos.forEach(a => {
-          if (!(a.id in merged)) {
-            const r = sesionExistente?.registros?.[a.id]
-            merged[a.id] = r ? r.presente : true
+        if (fechaCambio || !cambiosPendientesRef.current) {
+          // Cambió la fecha, o no hay cambios manuales pendientes → resetear desde la sesión guardada
+          const init = {}
+          if (sesionExistente?.registros) {
+            alumnos.forEach(a => {
+              const r = sesionExistente.registros[a.id]
+              init[a.id] = r ? r.presente : true
+            })
+          } else {
+            alumnos.forEach(a => { init[a.id] = true })
           }
+          setRegistros(init)
+          setLeccionNumero(sesionExistente?.leccionNumero ?? '')
+          cambiosPendientesRef.current = false
+        } else {
+          // Solo cambiaron datos de alumnos en Firebase (ej: programaBautizo),
+          // hay cambios manuales pendientes → merge: conservar marcas actuales,
+          // agregar alumnos nuevos, quitar los que ya no están
+          setRegistros(prev => {
+            const merged = { ...prev }
+            alumnos.forEach(a => {
+              if (!(a.id in merged)) {
+                const r = sesionExistente?.registros?.[a.id]
+                merged[a.id] = r ? r.presente : true
+              }
+            })
+            const ids = new Set(alumnos.map(a => a.id))
+            Object.keys(merged).forEach(k => { if (!ids.has(k)) delete merged[k] })
+            return merged
+          })
+        }
+        setGuardado(false)
+      }, [alumnos, fecha])
+
+      const totalLecciones = leccionActual?.totalLecciones || 16
+
+      const presentes = alumnos.filter(a => registros[a.id]).length
+      const ausentes  = alumnos.length - presentes
+
+      function toggleAlumno(id) {
+        cambiosPendientesRef.current = true
+        setGuardado(false)
+        setRegistros(prev => ({ ...prev, [id]: !prev[id] }))
+      }
+      function marcarTodos(valor) {
+        cambiosPendientesRef.current = true
+        setGuardado(false)
+        const nuevo = {}
+        alumnos.forEach(a => { nuevo[a.id] = valor })
+        setRegistros(nuevo)
+      }
+
+      async function guardar() {
+        if (alumnos.length === 0) return
+        setGuardando(true)
+        const datos = {
+          sesion:         Number(proximaSesion) || 1,
+          fecha:          fecha || null,
+          creadoEn:       sesionExistente?.creadoEn ?? Date.now(),
+          actualizadoEn:  Date.now(),
+          total:          alumnos.length,
+          presentes,
+          leccionId:      leccionActual?.id || null,
+          leccionTitulo:  leccionActual?.titulo || null,
+          leccionNumero:  leccionNumero ? Number(leccionNumero) : null,
+          registros:      {},
+        }
+        alumnos.forEach(a => {
+          datos.registros[a.id] = { nombreCompleto: a.nombreCompleto, presente: !!registros[a.id] }
         })
-        const ids = new Set(alumnos.map(a => a.id))
-        Object.keys(merged).forEach(k => { if (!ids.has(k)) delete merged[k] })
-        return merged
-      })
-    }
-    setGuardado(false)
-  }, [alumnos, fecha])
+        if (esActualizacion) {
+          await set(ref(db, `clases/${claseId}/asistencias/${sesionExistente.id}`), datos)
+        } else {
+          await push(ref(db, `clases/${claseId}/asistencias`), datos)
+        }
+        cambiosPendientesRef.current = false
+        setGuardando(false)
+        setGuardado(true)
+      }
 
-  const totalLecciones = leccionActual?.totalLecciones || 16
+      if (alumnos.length === 0) {
+        return <p className="empty-msg">No hay alumnos inscritos para tomar asistencia.</p>
+      }
 
-  const presentes = alumnos.filter(a => registros[a.id]).length
-  const ausentes  = alumnos.length - presentes
-
-  function toggleAlumno(id) {
-    cambiosPendientesRef.current = true
-    setGuardado(false)
-    setRegistros(prev => ({ ...prev, [id]: !prev[id] }))
-  }
-  function marcarTodos(valor) {
-    cambiosPendientesRef.current = true
-    setGuardado(false)
-    const nuevo = {}
-    alumnos.forEach(a => { nuevo[a.id] = valor })
-    setRegistros(nuevo)
-  }
-
-  async function guardar() {
-    if (alumnos.length === 0) return
-    setGuardando(true)
-    const datos = {
-      sesion:         Number(proximaSesion) || 1,
-      fecha:          fecha || null,
-      creadoEn:       sesionExistente?.creadoEn ?? Date.now(),
-      actualizadoEn:  Date.now(),
-      total:          alumnos.length,
-      presentes,
-      leccionId:      leccionActual?.id || null,
-      leccionTitulo:  leccionActual?.titulo || null,
-      leccionNumero:  leccionNumero ? Number(leccionNumero) : null,
-      registros:      {},
-    }
-    alumnos.forEach(a => {
-      datos.registros[a.id] = { nombreCompleto: a.nombreCompleto, presente: !!registros[a.id] }
-    })
-    if (esActualizacion) {
-      await set(ref(db, `clases/${claseId}/asistencias/${sesionExistente.id}`), datos)
-    } else {
-      await push(ref(db, `clases/${claseId}/asistencias`), datos)
-    }
-    cambiosPendientesRef.current = false
-    setGuardando(false)
-    setGuardado(true)
-  }
-
-  if (alumnos.length === 0) {
-    return <p className="empty-msg">No hay alumnos inscritos para tomar asistencia.</p>
-  }
-
-  return (
-    <div style={s.asistenciaWrap}>
-      {/* Encabezado sesión */}
-      <div style={s.sesionBanner}>
-        <div>
-          <div style={s.sesionLabel}>Sesión {proximaSesion}</div>
-          <div style={s.sesionSub}>
-            {esActualizacion ? '↻ Editando asistencia existente para esta fecha' : 'Nueva sesión de asistencia'}
-          </div>
-        </div>
-        <div style={s.statsPills}>
-          <span style={s.pillPresente}><IconCheck /> {presentes} presente{presentes !== 1 ? 's' : ''}</span>
-          <span style={s.pillAusente}><IconX /> {ausentes} ausente{ausentes !== 1 ? 's' : ''}</span>
-        </div>
-      </div>
-
-      {/* Selectores: fecha + lección */}
-      <div style={s.asistenciaHeader}>
-        <div style={s.fechaGroup}>
-          <label style={s.fechaLabel}>Fecha de la sesión</label>
-          <input type="date" value={fecha} onChange={e => { setFecha(e.target.value); setGuardado(false) }} style={s.fechaInput} />
-        </div>
-
-        {leccionActual ? (
-          <div style={s.fechaGroup}>
-            <label style={s.fechaLabel}>Lección N°</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-              <select
-                value={leccionNumero}
-                onChange={e => { setLeccionNumero(e.target.value); setGuardado(false) }}
-                style={{ ...s.fechaInput, minWidth: 130 }}
-              >
-                <option value="">— Seleccionar —</option>
-                {Array.from({ length: totalLecciones }, (_, i) => i + 1).map(n => (
-                  <option key={n} value={n}>Lección {n}</option>
-                ))}
-              </select>
-              <span style={s.leccionActualChip}>📖 {leccionActual.titulo}</span>
+      return (
+        <div style={s.asistenciaWrap}>
+          {/* Encabezado sesión */}
+          <div style={s.sesionBanner}>
+            <div>
+              <div style={s.sesionLabel}>Sesión {proximaSesion}</div>
+              <div style={s.sesionSub}>
+                {esActualizacion ? '↻ Editando asistencia existente para esta fecha' : 'Nueva sesión de asistencia'}
+              </div>
+            </div>
+            <div style={s.statsPills}>
+              <span style={s.pillPresente}><IconCheck /> {presentes} presente{presentes !== 1 ? 's' : ''}</span>
+              <span style={s.pillAusente}><IconX /> {ausentes} ausente{ausentes !== 1 ? 's' : ''}</span>
             </div>
           </div>
-        ) : (
-          <div style={{ ...s.fechaGroup, justifyContent: 'center' }}>
-            <span style={s.sinLeccionMsg}>Sin libro seleccionado en pantalla principal</span>
-          </div>
-        )}
-      </div>
 
-      {guardado && (
-        <div style={s.alertaGuardado}>
-          ✓ Asistencia guardada correctamente.
-        </div>
-      )}
+          {/* Selectores: fecha + lección */}
+          <div style={s.asistenciaHeader}>
+            <div style={s.fechaGroup}>
+              <label style={s.fechaLabel}>Fecha de la sesión</label>
+              <input type="date" value={fecha} onChange={e => { setFecha(e.target.value); setGuardado(false) }} style={s.fechaInput} />
+            </div>
 
-      {/* Acciones masivas */}
-      <div style={s.accionesMasivas}>
-        <button style={s.btnMasa} onClick={() => marcarTodos(true)}>Marcar todos presentes</button>
-        <button style={s.btnMasa} onClick={() => marcarTodos(false)}>Marcar todos ausentes</button>
-      </div>
-
-      {/* Lista */}
-      <div style={s.alumnosListaAsist}>
-        {alumnos.map((a, i) => {
-          const presente = !!registros[a.id]
-          return (
-            <div
-              key={a.id}
-              style={{ ...s.alumnoAsistRow, background: presente ? '#f0fdf4' : '#fff7f7', borderColor: presente ? '#bbf7d0' : '#fecaca' }}
-              onClick={() => toggleAlumno(a.id)}
-            >
-              <div style={{ ...s.estadoBtn, background: presente ? '#16a34a' : '#ef4444' }}>
-                {presente ? <IconCheck color="white" /> : <IconX color="white" />}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={s.alumnoAsistNombre}>{a.nombreCompleto}</div>
-                <div style={s.alumnoAsistMeta}>
-                  {[a.dni && `DNI: ${a.dni}`, a.codigoEstudiante && `Cód: ${a.codigoEstudiante}`].filter(Boolean).join(' · ')}
+            {leccionActual ? (
+              <div style={s.fechaGroup}>
+                <label style={s.fechaLabel}>Lección N°</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                  <select
+                    value={leccionNumero}
+                    onChange={e => { setLeccionNumero(e.target.value); setGuardado(false) }}
+                    style={{ ...s.fechaInput, minWidth: 130 }}
+                  >
+                    <option value="">— Seleccionar —</option>
+                    {Array.from({ length: totalLecciones }, (_, i) => i + 1).map(n => (
+                      <option key={n} value={n}>Lección {n}</option>
+                    ))}
+                  </select>
+                  <span style={s.leccionActualChip}>📖 {leccionActual.titulo}</span>
                 </div>
               </div>
-              <div style={{ ...s.asistBadge, background: presente ? '#dcfce7' : '#fee2e2', color: presente ? '#166534' : '#991b1b' }}>
-                {presente ? 'Presente' : 'Ausente'}
+            ) : (
+              <div style={{ ...s.fechaGroup, justifyContent: 'center' }}>
+                <span style={s.sinLeccionMsg}>Sin libro seleccionado en pantalla principal</span>
               </div>
-            </div>
-          )
-        })}
-      </div>
+            )}
+          </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-        <button
-          className="btn btn-success"
-          style={{ fontSize: '0.95rem', padding: '0.6rem 1.6rem' }}
-          onClick={guardar}
-          disabled={guardando || guardado}
-        >
-          {guardando ? 'Guardando…' : guardado ? '✓ Asistencia guardada' : esActualizacion ? 'Actualizar asistencia' : 'Guardar asistencia'}
-        </button>
-      </div>
-    </div>
-  )
-}
+          {guardado && (
+            <div style={s.alertaGuardado}>
+              ✓ Asistencia guardada correctamente.
+            </div>
+          )}
+
+          {/* Acciones masivas */}
+          <div style={s.accionesMasivas}>
+            <button style={s.btnMasa} onClick={() => marcarTodos(true)}>Marcar todos presentes</button>
+            <button style={s.btnMasa} onClick={() => marcarTodos(false)}>Marcar todos ausentes</button>
+          </div>
+
+          {/* Lista */}
+          <div style={s.alumnosListaAsist}>
+            {alumnos.map((a, i) => {
+              const presente = !!registros[a.id]
+              return (
+                <div
+                  key={a.id}
+                  style={{ ...s.alumnoAsistRow, background: presente ? '#f0fdf4' : '#fff7f7', borderColor: presente ? '#bbf7d0' : '#fecaca' }}
+                  onClick={() => toggleAlumno(a.id)}
+                >
+                  <div style={{ ...s.estadoBtn, background: presente ? '#16a34a' : '#ef4444' }}>
+                    {presente ? <IconCheck color="white" /> : <IconX color="white" />}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={s.alumnoAsistNombre}>{a.nombreCompleto}</div>
+                    <div style={s.alumnoAsistMeta}>
+                      {[a.dni && `DNI: ${a.dni}`, a.codigoEstudiante && `Cód: ${a.codigoEstudiante}`].filter(Boolean).join(' · ')}
+                    </div>
+                  </div>
+                  <div style={{ ...s.asistBadge, background: presente ? '#dcfce7' : '#fee2e2', color: presente ? '#166534' : '#991b1b' }}>
+                    {presente ? 'Presente' : 'Ausente'}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+            <button
+              className="btn btn-success"
+              style={{ fontSize: '0.95rem', padding: '0.6rem 1.6rem' }}
+              onClick={guardar}
+              disabled={guardando || guardado}
+            >
+              {guardando ? 'Guardando…' : guardado ? '✓ Asistencia guardada' : esActualizacion ? 'Actualizar asistencia' : 'Guardar asistencia'}
+            </button>
+          </div>
+        </div>
+      )
+    }
 
 /* ── Historial de asistencias ── */
-function HistorialAsistencia({ asistencias }) {
+/* ── Historial de asistencias ── */
+function HistorialAsistencia({ claseId, asistencias }) {
   const [abierto, setAbierto] = useState(null)
+  
+  // Estados para el modal de edición de fecha
+  const [editando, setEditando]     = useState(null)
+  const [nuevaFecha, setNuevaFecha] = useState('')
+  const [guardando, setGuardando]   = useState(false)
+  
+  // Estados para el modal de eliminar
+  const [sesionAEliminar, setSesionAEliminar] = useState(null)
+  const [eliminando, setEliminando]           = useState(false)
+
+  // Estado para el mensaje de éxito
+  const [mensajeExito, setMensajeExito] = useState('')
+
+  function mostrarMensaje(texto) {
+    setMensajeExito(texto)
+    setTimeout(() => setMensajeExito(''), 3000)
+  }
 
   if (asistencias.length === 0) {
     return <p className="empty-msg">No hay registros de asistencia aún.</p>
@@ -1312,11 +1330,66 @@ function HistorialAsistencia({ asistencias }) {
     return `${d}/${m}/${y}`
   }
 
-  // Ordenar por sesion ascendente para mostrarlas en orden
+  // ── LÓGICA PARA EDITAR FECHA ──
+  function iniciarEdicion(e, sesion) {
+    e.stopPropagation()
+    setEditando(sesion)
+    setNuevaFecha(sesion.fecha || '')
+  }
+
+  async function guardarNuevaFecha() {
+    if (!nuevaFecha) return alert('Debes seleccionar una fecha.')
+    setGuardando(true)
+    try {
+      await update(ref(db, `clases/${claseId}/asistencias/${editando.id}`), {
+        fecha: nuevaFecha,
+        actualizadoEn: Date.now()
+      })
+      setEditando(null)
+      mostrarMensaje('Fecha de sesión actualizada con éxito.')
+    } catch (error) {
+      console.error("Error al actualizar:", error)
+      alert("Hubo un error al guardar la nueva fecha.")
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  // ── LÓGICA PARA ELIMINAR SESIÓN ──
+  function iniciarEliminacion(e, sesion) {
+    e.stopPropagation()
+    setSesionAEliminar(sesion)
+  }
+
+  async function confirmarEliminacion() {
+    if (!sesionAEliminar) return
+    setEliminando(true)
+    try {
+      await remove(ref(db, `clases/${claseId}/asistencias/${sesionAEliminar.id}`))
+      setSesionAEliminar(null)
+      mostrarMensaje('Sesión eliminada con éxito.')
+    } catch (error) {
+      console.error("Error al eliminar:", error)
+      alert("Ocurrió un error al intentar eliminar la sesión.")
+    } finally {
+      setEliminando(false)
+    }
+  }
+
+  // Ordenar por sesion ascendente
   const ordenadas = [...asistencias].sort((a, b) => (a.sesion || 0) - (b.sesion || 0))
 
   return (
     <div style={s.historialWrap}>
+      
+      {/* ── ALERTA DE ÉXITO FLOTANTE (NUBE/BURBUJA) ── */}
+      {mensajeExito && (
+        <div style={s.toastFlotante}>
+          <div style={s.toastIcono}>✓</div>
+          {mensajeExito}
+        </div>
+      )}
+
       {ordenadas.map(a => {
         const registros = a.registros ? Object.values(a.registros) : []
         const isOpen = abierto === a.id
@@ -1324,7 +1397,11 @@ function HistorialAsistencia({ asistencias }) {
 
         return (
           <div key={a.id} style={s.historialCard}>
+
+            {/* Cabecera principal (Todo en una sola línea) */}
             <div style={s.historialHeader} onClick={() => setAbierto(isOpen ? null : a.id)}>
+              
+              {/* IZQUIERDA: Info de la sesión */}
               <div style={s.historialFechaWrap}>
                 <div style={s.historialSesionNum}>{a.sesion ?? '—'}</div>
                 <div>
@@ -1337,31 +1414,129 @@ function HistorialAsistencia({ asistencias }) {
                   )}
                 </div>
               </div>
-              <div style={s.historialStats}>
-                <div style={s.barraWrap}>
-                  <div style={{ ...s.barraFill, width: `${pct}%` }} />
+
+              {/* DERECHA: Botones + Barra de progreso */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                
+                {/* Estadísticas (Barra, número y flechita) */}
+                <div style={s.historialStats}>
+                  <div style={s.barraWrap}>
+                    <div style={{ ...s.barraFill, width: `${pct}%` }} />
+                  </div>
+                  <span style={s.pillPresente}>{a.presentes}/{a.total}</span>
+                  <span style={{ ...s.chevron, transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▾</span>
                 </div>
-                <span style={s.pillPresente}>{a.presentes}/{a.total}</span>
-                <span style={{ ...s.chevron, transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▾</span>
+
+                {/* Botones */}
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <button style={s.btnEditarMini} onClick={(e) => iniciarEdicion(e, a)} title="Editar fecha">
+                    <IconEditar /> Editar
+                  </button>
+                  <button style={s.btnEliminarMini} onClick={(e) => iniciarEliminacion(e, a)} title="Eliminar sesión">
+                    <IconTrash /> Eliminar
+                  </button>
+                </div>
+
               </div>
             </div>
-
-            {isOpen && registros.length > 0 && (
+            
+            
+            {/* BOTONES SIEMPRE VISIBLES */}
+            {/*
+            <div style={s.historialAccionesTop}>
+              <button 
+                style={s.btnEditarMini} 
+                onClick={(e) => iniciarEdicion(e, a)}
+              >
+                <IconEditar /> Editar fecha
+              </button>
+              <button 
+                style={s.btnEliminarMini} 
+                onClick={(e) => iniciarEliminacion(e, a)}
+              >
+                <IconTrash /> Eliminar
+              </button>
+            </div>
+*/}
+            {/* Lista de alumnos (Solo visible si está abierto) */}
+            {isOpen && (
               <div style={s.historialDetalle}>
-                {registros.map((r, i) => (
-                  <div key={i} style={s.historialRow}>
-                    <div style={{ ...s.estadoDot, background: r.presente ? '#16a34a' : '#ef4444' }} />
-                    <span style={s.historialNombre}>{r.nombreCompleto}</span>
-                    <span style={{ ...s.asistBadge, background: r.presente ? '#dcfce7' : '#fee2e2', color: r.presente ? '#166534' : '#991b1b' }}>
-                      {r.presente ? 'Presente' : 'Ausente'}
-                    </span>
-                  </div>
-                ))}
+                {registros.length > 0 ? (
+                  registros.map((r, i) => (
+                    <div key={i} style={s.historialRow}>
+                      <div style={{ ...s.estadoDot, background: r.presente ? '#16a34a' : '#ef4444' }} />
+                      <span style={s.historialNombre}>{r.nombreCompleto}</span>
+                      <span style={{ ...s.asistBadge, background: r.presente ? '#dcfce7' : '#fee2e2', color: r.presente ? '#166534' : '#991b1b' }}>
+                        {r.presente ? 'Presente' : 'Ausente'}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="empty-msg" style={{ margin: '0.5rem' }}>No hay alumnos registrados en esta sesión.</p>
+                )}
               </div>
             )}
           </div>
         )
       })}
+
+      {/* ── MODAL PARA EDITAR FECHA ── */}
+      {editando && (
+        <div style={mc.backdrop} onClick={(e) => { if (e.target === e.currentTarget) setEditando(null) }}>
+          <div className="modal-inner" style={{...mc.modal, maxWidth: 360}}>
+            <div style={mc.iconWrap}><span style={mc.icon}>📅</span></div>
+            <h2 style={mc.title}>Cambiar fecha de sesión</h2>
+            <p style={mc.desc}>Selecciona la nueva fecha para la <strong>Sesión {editando.sesion}</strong>.</p>
+            
+            <input 
+              type="date" 
+              value={nuevaFecha} 
+              onChange={e => setNuevaFecha(e.target.value)} 
+              style={{ ...s.fechaInput, width: '100%', marginBottom: '1.5rem', textAlign: 'center' }} 
+            />
+
+            <div style={mc.acciones}>
+              <button style={mc.btnCancelar} onClick={() => setEditando(null)} disabled={guardando}>
+                Cancelar
+              </button>
+              <button className="btn btn-primary" style={mc.btnConfirmar} onClick={guardarNuevaFecha} disabled={guardando}>
+                {guardando ? 'Guardando…' : 'Guardar fecha'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL PARA CONFIRMAR ELIMINACIÓN ── */}
+      {sesionAEliminar && (
+        <div style={mc.backdrop} onClick={(e) => { if (e.target === e.currentTarget) setSesionAEliminar(null) }}>
+          <div className="modal-inner" style={{...mc.modal, maxWidth: 380}}>
+            <div style={{...mc.iconWrap, background: '#fee2e2', width: 64, height: 64, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem'}}>
+              <span style={{...mc.icon, color: '#ef4444', margin: 0, lineHeight: 1}}>⚠️</span>
+            </div>
+            <h2 style={mc.title}>¿Eliminar sesión?</h2>
+            <p style={mc.desc}>
+              Estás a punto de eliminar la <strong>Sesión {sesionAEliminar.sesion}</strong> del día <strong>{formatFecha(sesionAEliminar.fecha)}</strong>.<br/><br/>
+              Esta acción borrará la asistencia de todos los alumnos de esa fecha y no se puede deshacer.
+            </p>
+
+            <div style={mc.acciones}>
+              <button style={mc.btnCancelar} onClick={() => setSesionAEliminar(null)} disabled={eliminando}>
+                Cancelar
+              </button>
+              <button 
+                className="btn btn-danger" 
+                style={mc.btnConfirmar} 
+                onClick={confirmarEliminacion} 
+                disabled={eliminando}
+              >
+                {eliminando ? 'Eliminando…' : 'Sí, eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
@@ -1833,6 +2008,44 @@ const s = {
   pillAusente: { display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: '#fee2e2', color: '#991b1b', borderRadius: 99, fontSize: '0.8rem', fontWeight: 700, padding: '0.25rem 0.75rem' },
   alertaYaExiste: { background: '#fff7ed', border: '1.5px solid #fed7aa', borderRadius: 10, color: '#9a3412', fontSize: '0.83rem', padding: '0.65rem 1rem', marginBottom: '0.8rem' },
   alertaGuardado: { background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 10, color: '#166534', fontSize: '0.83rem', fontWeight: 600, padding: '0.65rem 1rem', marginBottom: '0.8rem' },
+
+  // NUEVOS ESTILOS PARA LA NOTIFICACIÓN FLOTANTE
+  toastFlotante: {
+  position: 'fixed',
+  top: '1.5rem',
+  right: '1.5rem',
+  background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+  border: '1px solid #86efac',
+  boxShadow: '0 12px 30px rgba(22, 163, 74, 0.18)',
+  borderRadius: 16,
+  padding: '0.9rem 1.3rem',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.75rem',
+  zIndex: 9999,
+  color: '#166534',
+  fontWeight: 600,
+  fontSize: '0.95rem',
+  animation: 'fadeIn 0.3s ease',
+  backdropFilter: 'blur(8px)',
+},
+
+toastIcono: {
+  background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+  color: 'white',
+  width: 28,
+  height: 28,
+  borderRadius: '50%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: '0.85rem',
+  fontWeight: 800,
+  flexShrink: 0,
+  boxShadow: '0 4px 12px rgba(22, 163, 74, 0.35)',
+},
+
+
   accionesMasivas: { display: 'flex', gap: '0.5rem', marginBottom: '0.8rem' },
   btnMasa: { padding: '0.35rem 0.9rem', borderRadius: 8, border: '1.5px solid #e2e8f0', background: 'white', color: '#023052', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit' },
   alumnosListaAsist: { display: 'flex', flexDirection: 'column', gap: '0.4rem' },
@@ -1856,6 +2069,27 @@ const s = {
   barraFill: { height: '100%', background: '#16a34a', borderRadius: 99, transition: 'width 0.3s' },
   chevron:   { fontSize: '1rem', color: '#94a3b8', transition: 'transform 0.2s', userSelect: 'none' },
   historialDetalle: { borderTop: '1px solid #f1f5f9', background: '#fafbfc' },
+
+  // ── NUEVOS ESTILOS PARA ACCIONES SIEMPRE VISIBLES ──
+  historialAccionesTop: { 
+    display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', 
+    padding: '0.4rem 1rem 0.6rem', background: 'white', 
+    borderBottom: '1px solid #f1f5f9' 
+  },
+  btnEditarMini: {
+    display: 'flex', alignItems: 'center', gap: '0.3rem',
+    background: 'white', color: '#023052', border: '1.5px solid #e2e8f0',
+    borderRadius: 6, padding: '0.35rem 0.6rem', fontSize: '0.78rem', fontWeight: 700,
+    cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s',
+  },
+  btnEliminarMini: {
+    display: 'flex', alignItems: 'center', gap: '0.3rem',
+    background: '#fee2e2', color: '#991b1b', border: 'none',
+    borderRadius: 6, padding: '0.35rem 0.6rem', fontSize: '0.78rem', fontWeight: 700,
+    cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s',
+  },
+
+  // CONTINÚA LO QUE YA TENÍAS:
   historialRow:     { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 1rem 0.5rem 1.2rem', borderBottom: '1px solid #f1f5f9' },
   estadoDot:        { width: 10, height: 10, borderRadius: '50%', flexShrink: 0 },
   historialNombre:  { flex: 1, fontSize: '0.86rem', color: '#023052', fontWeight: 500 },
