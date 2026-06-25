@@ -1430,10 +1430,10 @@ function HistorialAsistencia({ claseId, asistencias }) {
                 {/* Botones */}
                 <div style={{ display: 'flex', gap: '0.4rem' }}>
                   <button style={s.btnEditarMini} onClick={(e) => iniciarEdicion(e, a)} title="Editar fecha">
-                    <IconEditar /> Editar
+                    <IconEditar /> Editar fecha
                   </button>
                   <button style={s.btnEliminarMini} onClick={(e) => iniciarEliminacion(e, a)} title="Eliminar sesión">
-                    <IconTrash /> Eliminar
+                    <IconTrash /> Eliminar sesión
                   </button>
                 </div>
 
